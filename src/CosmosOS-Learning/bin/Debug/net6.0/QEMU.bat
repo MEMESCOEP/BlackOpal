@@ -1,0 +1,3 @@
+@ECHO OFF
+echo Starting QEMU...
+"C:\Program Files\qemu\qemu-system-x86_64.exe" -cdrom "CosmosOS-Learning.iso" -m 128
