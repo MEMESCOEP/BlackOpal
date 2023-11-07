@@ -3,7 +3,7 @@ using Cosmos.System.Graphics;
 using System.Drawing;
 using System;
 
-namespace CosmosOS_Learning
+namespace GUI.Component
 {
     internal class ImageButton
     {
@@ -68,14 +68,14 @@ namespace CosmosOS_Learning
 
         public bool IsPressed()
         {
-            if (MouseManager.LastMouseState == MouseManager.MouseState || MouseManager.MouseState != MouseState.Left)
-            {                
+            if (MouseManager.MouseState != MouseState.Left)
+            {
                 ActionCalled = false;
                 return false;
             }
 
-            return (ButtonPosition.X <= MouseManager.X && MouseManager.X <= ButtonBottomRight.X) && 
-                (ButtonPosition.Y <= MouseManager.Y && MouseManager.Y <= ButtonBottomRight.Y);
+            return ButtonPosition.X <= MouseManager.X && MouseManager.X <= ButtonBottomRight.X &&
+                ButtonPosition.Y <= MouseManager.Y && MouseManager.Y <= ButtonBottomRight.Y;
         }
     }
 }

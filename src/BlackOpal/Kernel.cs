@@ -1,22 +1,24 @@
 ﻿/* [===== MAIN KERNEL CLASS =====] */
-// Note: This kernel currently requires 99 MB of RAM to boot when using GZIP compression, but can run on as little 2MB (GUI) / 512k (CMD) AFTER booting.
+// Note: This kernel currently requires 99 MB of RAM to boot when using GZIP compression, but can run on as little 2.2MB (VMSVGA) / 10.72MB (VGA) / 512k (CMD) AFTER booting.
 // If GZIP isn't being used, 64 MB is the minimum required to boot.
-// I believe this is because the entire kernel is getting decompressed into RAM, but it might not be.
-// After booting, the OS uses around 300-350K in console mode, and about 2.05MB in GUI mode.
+// I believe this is because the entire kernel is getting decompressed into RAM, but this might not be the case.
+// After booting, the OS uses around 300-350K in console mode, and about 2.2MB (VMSVGA) / 10.72MB (VGA) in GUI mode.
 // Using GZIP compresses the ISO image, at the expense of higher memory requirements
 
 /* DIRECTIVES */
-using Sys = Cosmos.System;
 using Cosmos.System.Network.Config;
 using Cosmos.Core.Memory;
 using Cosmos.Core;
 using System.Threading;
 using System.IO;
 using System;
-using IO;
+using IO.Networking;
+using IO.CMD;
+using Sys = Cosmos.System;
+using Cosmos.HAL;
 
 /* NAMESPACES */
-namespace CosmosOS_Learning
+namespace BlackOpal
 {
     /* CLASSES */
     public class Kernel : Sys.Kernel
@@ -28,9 +30,12 @@ namespace CosmosOS_Learning
         public static DateTime KernelStartTime;
         public static float TotalInstalledRAM = 0f;
         public static float UsedRAM = 0f;
-        public const string OSName = "Andrew Maney's Research Kernel";
         public const string OSVersion = "0.0.1";
-        public const string CMDPrompt = ">> ";
+        public const string OSName = "Black Opal";
+        public const string OSDate = "11-6-2023";
+        public string CMDPrompt = ">> ";
+        public string Username = "root";
+        public string Hostname = "ResKnl";
         public Sys.FileSystem.CosmosVFS fs;
 
         /* FUNCTIONS */
@@ -47,6 +52,10 @@ namespace CosmosOS_Learning
 
                 // Print a boot message
                 ConsoleFunctions.PrintLogMSG($"Kernel started at {KernelStartTime.ToString()}\n", ConsoleFunctions.LogType.INFO);
+
+                // Set the keyboard layout (this may help with some keyboards acting funky)
+                ConsoleFunctions.PrintLogMSG($"Setting keyboard layout...\n", ConsoleFunctions.LogType.INFO);
+                Sys.KeyboardManager.SetKeyLayout(new Sys.ScanMaps.USStandardLayout());
 
                 // Get the total amount of installed RAM in the computer
                 TotalInstalledRAM = CPU.GetAmountOfRAM() * 1024f;
@@ -100,13 +109,19 @@ namespace CosmosOS_Learning
                 Console.Clear();
 
                 // Print the OS name and version
-                ConsoleFunctions.PrintLogMSG($"[== {OSName.ToUpper()} ({OSVersion}) ==]\nKernel started at {KernelStartTime.ToString()}.\nTerminal size: {Console.WindowWidth}x{Console.WindowHeight}\n\n", ConsoleFunctions.LogType.NONE);
+                ConsoleFunctions.PrintLogMSG($"{OSName} {OSVersion} - {OSDate}\n" +
+                    $"Kernel started at {KernelStartTime.ToString()} (BTR took {(DateTime.Now.Millisecond - KernelStartTime.Millisecond).ToString()} ms).\n" +
+                    $"Terminal size: {Console.WindowWidth}x{Console.WindowHeight}\n\n", ConsoleFunctions.LogType.NONE);
+
+                // Play a tone
+                PCSpeaker.Beep(450, 100);
             }
             catch (Exception ex)
             {
-                ConsoleFunctions.PrintLogMSG($"{ex.Message}\n\nPress any key to reboot.", ConsoleFunctions.LogType.FATAL);
-                Console.ReadKey();
-                Sys.Power.Reboot();
+                ConsoleFunctions.PrintLogMSG($"{ex.Message}\n\nThe system has been halted.\n", ConsoleFunctions.LogType.FATAL);
+
+                while (true)
+                    CPU.Halt();
             }
         }
 
@@ -114,10 +129,14 @@ namespace CosmosOS_Learning
         // This will be known as the main loop
         protected override void Run()
         {
-            // Print the prompt and handle a command
+            // Print the prompt
+            Console.ForegroundColor = ConsoleColor.Magenta;
+            Console.Write($"{Username}@{Hostname}");
             Console.ForegroundColor = ConsoleColor.Green;
-            Console.Write($"({Directory.GetCurrentDirectory()}) {CMDPrompt}");
+            Console.Write($"[{Directory.GetCurrentDirectory()}] {CMDPrompt}");
             Console.ForegroundColor = ConsoleColor.White;
+
+            // Get user input
             var input = Console.ReadLine().Split(' ');
 
             // Handle a command
@@ -134,15 +153,19 @@ namespace CosmosOS_Learning
             {
                 // ** GUI **
                 case "gui":
-                    GUI gui = new();
+                    GUI.GUI gui = new();
                     gui.Init();
                     break;
+
+
 
                 // ** CONSOLE **
                 case "clear":
                 case "cls":
                     Console.Clear();
                     break;
+
+
 
                 // ** NETWORK **
                 // Use NTP to set the current date/time
@@ -160,7 +183,7 @@ namespace CosmosOS_Learning
 
                 // Get NIC information
                 case "nicinfo":
-                    if (Networking.IsConfigured() == false)
+                    if (Network.IsConfigured() == false)
                     {
                         ConsoleFunctions.PrintLogMSG($"A NIC must be properly configured before networking can be used.\n\n", ConsoleFunctions.LogType.ERROR);
                         break;
@@ -175,7 +198,7 @@ namespace CosmosOS_Learning
 
                 // Ping a device on a network using it's IPv4 address
                 case "ping":
-                    if (Networking.IsConfigured() == false)
+                    if (Network.IsConfigured() == false)
                     {
                         ConsoleFunctions.PrintLogMSG($"A NIC must be properly configured before networking can be used.\n\n", ConsoleFunctions.LogType.ERROR);
                         break;
@@ -187,7 +210,7 @@ namespace CosmosOS_Learning
                         break;
                     }
 
-                    if (Networking.IsIPv4AddressValid(arguments[1]) == false)
+                    if (Network.IsIPv4AddressValid(arguments[1]) == false)
                     {
                         ConsoleFunctions.PrintLogMSG($"\"{arguments[1]}\" is not a valid IP address.\n\n", ConsoleFunctions.LogType.ERROR);
                         break;
@@ -198,7 +221,7 @@ namespace CosmosOS_Learning
 
                     for (int i = 0; i < 4; i++)
                     {
-                        float PingTime = Networking.ICMPPing(Networking.StringToAddress(arguments[1]));
+                        float PingTime = Network.ICMPPing(Network.StringToAddress(arguments[1]));
 
                         if(PingTime >= 0)
                         {
@@ -217,9 +240,9 @@ namespace CosmosOS_Learning
 
                     break;
 
-                // Prnt network information
+                // Print network information
                 case "netinfo":
-                    if (Networking.IsConfigured() == false)
+                    if (Network.IsConfigured() == false)
                     {
                         ConsoleFunctions.PrintLogMSG($"A NIC must be properly configured before networking can be used.\n\n", ConsoleFunctions.LogType.ERROR);
                         break;
@@ -244,13 +267,13 @@ namespace CosmosOS_Learning
                         if (arguments[1] == "dhcp")
                         {
                             ConsoleFunctions.PrintLogMSG("Attempting to obtain an IPv4 address via DHCP...\n", ConsoleFunctions.LogType.INFO);
-                            if (Networking.DHCPAutoconfig() == false)
+                            if (Network.DHCPAutoconfig() == false)
                             {
                                 ConsoleFunctions.PrintLogMSG("DHCP autoconfiguration failed.\n", ConsoleFunctions.LogType.ERROR);
                             }
 
                             // If DHCP worked, print the configuration information
-                            if (Networking.IsConfigured())
+                            if (Network.IsConfigured())
                             {
                                 Console.WriteLine($"[== NET CONFIG ==]\n" +
                                     $"IP: {NetworkConfiguration.CurrentNetworkConfig.IPConfig.IPAddress.ToString()}\n" +
@@ -268,6 +291,8 @@ namespace CosmosOS_Learning
                     }
 
                     break;
+
+
 
                 // ** FILESYSTEM **
                 // Make a file
@@ -504,6 +529,8 @@ namespace CosmosOS_Learning
 
                     break;
 
+
+
                 // ** POWER **
                 // Shut down the computer
                 case "shutdown":
@@ -518,6 +545,8 @@ namespace CosmosOS_Learning
                 case "restart":
                     Sys.Power.Reboot();
                     break;
+
+
 
                 // ** SYSTEM **
                 // Get RAM information
@@ -538,6 +567,8 @@ namespace CosmosOS_Learning
                         $"System uptime: {DateTime.Now - KernelStartTime}\n");
                     break;
 
+
+
                 // ** EXTRA **
                 // Empty command
                 case "":
@@ -550,9 +581,10 @@ namespace CosmosOS_Learning
             }
 
             // Collect any garbage that we created. This helps prevent memory leaks, which can cause the computer
-            // to run out of memory, which leads to crashes. Real OSes such as Windows solve this by using "swap", which
-            // is a partition or file that acts as extra memory and is stored on the hard disk. I haven't implemented
-            // this yet because I'm focusing on getting the core functionality implemented first.
+            // to run out of memory, which leads to crashes. Real OSes such as Windows solve this by using both a garbace collector and "swap".
+            // Swap is a partition or file that acts as extra (slower) RAM, and is stored on the hard disk. I haven't implemented
+            // this yet because I'm focusing on getting the core functionality implemented first, and I believe it's pretty complex to implement.
+            // Cosmos also doesn't have stable filesystem support as of right now (11-3-23).
             Heap.Collect();
         }
     }

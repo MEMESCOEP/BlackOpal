@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "dgSpecHash": "mmNTLRzuzOqTR+Z1lUGWGBWIx6NUk7ISIhuBmSU8sGmeZ/Tlk4ahSaCQHQhKz6gqyrj/72hZtHW2MOhj4af3ZA==",
+  "success": true,
+  "projectFilePath": "D:\\Programming\\C#\\BlackOpal\\BlackOpal\\BlackOpal.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\Andrew\\.nuget\\packages\\cosmos.build\\0.1.0-localbuild20231022105154\\cosmos.build.0.1.0-localbuild20231022105154.nupkg.sha512",
+    "C:\\Users\\Andrew\\.nuget\\packages\\cosmos.common\\0.1.0-localbuild20231022105201\\cosmos.common.0.1.0-localbuild20231022105201.nupkg.sha512",
+    "C:\\Users\\Andrew\\.nuget\\packages\\cosmos.core\\0.1.0-localbuild20231022105201\\cosmos.core.0.1.0-localbuild20231022105201.nupkg.sha512",
+    "C:\\Users\\Andrew\\.nuget\\packages\\cosmos.debug.kernel\\0.1.0-localbuild20231022105201\\cosmos.debug.kernel.0.1.0-localbuild20231022105201.nupkg.sha512",
+    "C:\\Users\\Andrew\\.nuget\\packages\\cosmos.hal2\\0.1.0-localbuild20231022105201\\cosmos.hal2.0.1.0-localbuild20231022105201.nupkg.sha512",
+    "C:\\Users\\Andrew\\.nuget\\packages\\cosmos.plugs\\0.1.0-localbuild20231022105201\\cosmos.plugs.0.1.0-localbuild20231022105201.nupkg.sha512",
+    "C:\\Users\\Andrew\\.nuget\\packages\\cosmos.system2\\0.1.0-localbuild20231022105201\\cosmos.system2.0.1.0-localbuild20231022105201.nupkg.sha512",
+    "C:\\Users\\Andrew\\.nuget\\packages\\il2cpu.api\\0.1.0-localbuild20231022105201\\il2cpu.api.0.1.0-localbuild20231022105201.nupkg.sha512"
+  ],
+  "logs": []
+}

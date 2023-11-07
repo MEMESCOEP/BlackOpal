@@ -1,11 +1,11 @@
-﻿using Cosmos.System;
+﻿using Cosmos.System.Graphics.Fonts;
 using Cosmos.System.Graphics;
-using Cosmos.System.Graphics.Fonts;
-using System;
+using Cosmos.System;
 using System.Drawing;
-using System.Reflection;
+using System;
+using BlackOpal.Calculations;
 
-namespace CosmosOS_Learning
+namespace GUI.Component
 {
     internal class TextButton
     {
@@ -13,6 +13,7 @@ namespace CosmosOS_Learning
         public PCScreenFont TextFont = PCScreenFont.Default;
         public Action PressedAction = new Action(() => { });
         public Canvas ScreenCanvas;
+        public Color ButtonHighlightColor = Color.White;
         public Color ButtonPressedColor = Color.Gray;
         public Color ButtonColor = Color.LightGray;
         public Color TextColor = Color.Black;
@@ -32,7 +33,7 @@ namespace CosmosOS_Learning
             // Calculate the button's length in pixels
             if (ButtonPixelLength == 0)
             {
-                ButtonPixelLength = (ButtonText.Length * 8) + 8;
+                ButtonPixelLength = ButtonText.Length * 8 + 8;
             }
 
             // Calculate where the bottom right corner of the button is
@@ -59,7 +60,15 @@ namespace CosmosOS_Learning
             }
             else
             {
-                ScreenCanvas.DrawFilledRectangle(ButtonColor, ButtonPosition.X, ButtonPosition.Y, ButtonPixelLength, 17);
+                if (CheckHighlight())
+                {
+                    ScreenCanvas.DrawFilledRectangle(ButtonHighlightColor, ButtonPosition.X, ButtonPosition.Y, ButtonPixelLength, 17);
+                }
+                else
+                {
+                    ScreenCanvas.DrawFilledRectangle(ButtonColor, ButtonPosition.X, ButtonPosition.Y, ButtonPixelLength, 17);
+                }
+
                 ScreenCanvas.DrawString(ButtonText, TextFont, TextColor, ButtonPosition.X + 4, ButtonPosition.Y + 2);
 
                 ScreenCanvas.DrawLine(Color.White, ButtonPosition.X, ButtonPosition.Y, ButtonPosition.X + ButtonPixelLength, ButtonPosition.Y);
@@ -72,14 +81,19 @@ namespace CosmosOS_Learning
 
         public bool IsPressed()
         {
-            if (MouseManager.LastMouseState == MouseManager.MouseState || MouseManager.MouseState != MouseState.Left)
+            if (MouseManager.MouseState != MouseState.Left)
             {
                 ActionCalled = false;
                 return false;
             }
 
-            return (ButtonPosition.X <= MouseManager.X && MouseManager.X <= ButtonBottomRight.X) && 
-                (ButtonPosition.Y <= MouseManager.Y && MouseManager.Y <= ButtonBottomRight.Y);
+            return ButtonPosition.X <= MouseManager.X && MouseManager.X <= ButtonBottomRight.X &&
+                ButtonPosition.Y <= MouseManager.Y && MouseManager.Y <= ButtonBottomRight.Y;
+        }
+
+        public bool CheckHighlight()
+        {
+            return (ShapeCollision.IsPointInsideRectangle((int)MouseManager.X, (int)MouseManager.Y, ButtonPosition.X, ButtonPosition.Y, ButtonBottomRight.X, ButtonBottomRight.Y));
         }
     }
 }

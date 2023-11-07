@@ -5,9 +5,9 @@ using Cosmos.System.Network.IPv4.UDP.DHCP;
 using System.Linq;
 using System;
 
-namespace IO
+namespace IO.Networking
 {
-    internal class Networking
+    internal class Network
     {
         /* VARIABLES */
 

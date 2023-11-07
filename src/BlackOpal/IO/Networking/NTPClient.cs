@@ -4,9 +4,9 @@ using Cosmos.System.Network.IPv4;
 using Cosmos.System.Network.IPv4.UDP;
 using Cosmos.System.Network.IPv4.UDP.DNS;
 using System;
-using IO;
+using IO.CMD;
 
-namespace CosmosOS_Learning
+namespace IO.Networking
 {
     internal class NTPClient
     {
@@ -16,7 +16,7 @@ namespace CosmosOS_Learning
 
         /* FUNCTIONS */
         public static DateTime GetNetworkTime()
-        { 
+        {
             // NTP message size - 16 bytes of the digest (RFC 2030)
             var NTPData = new byte[48];
 
@@ -68,13 +68,12 @@ namespace CosmosOS_Learning
             intPart = SwapEndianness(intPart);
             fractPart = SwapEndianness(fractPart);
 
-            var milliseconds = (intPart * 1000) + ((fractPart * 1000) / 0x100000000L);
+            var milliseconds = intPart * 1000 + fractPart * 1000 / 0x100000000L;
 
             // Get the time
-            var networkDateTime = (new DateTime(1900, 1, 1, 0, 0, 0)).AddMilliseconds(milliseconds);
+            var networkDateTime = new DateTime(1900, 1, 1, 0, 0, 0).AddMilliseconds(milliseconds);
 
             return networkDateTime;
-            //return DateTime.Now;
         }
 
         // stackoverflow.com/a/3294698/162671

@@ -3,7 +3,7 @@
 using System;
 
 /* NAMESPACES */
-namespace IO
+namespace IO.CMD
 {
     /* CLASSES */
     internal class ConsoleFunctions
