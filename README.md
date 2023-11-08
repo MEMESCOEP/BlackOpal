@@ -1,4 +1,5 @@
 # Black Opal
+> **NOTE**
 > A paper outlining the design, boot process, and class-level functionality can be found [here](https://github.com/MEMESCOEP/BlackOpal/wiki/).
 <br/>
 
