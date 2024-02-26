@@ -17,13 +17,18 @@
         <Profile>VMware</Profile>
         <Description>Use VMware Player or Workstation to deploy and debug.</Description>
         <PxeInterface>192.168.0.8</PxeInterface>
-        <CompressionType>None</CompressionType>
+        <CompressionType>Gzip</CompressionType>
         <OptimizationLevel>2</OptimizationLevel>
         <Timeout>5</Timeout>
         <DebugEnabled>False</DebugEnabled>
+        <CompileVBEMultiboot>True</CompileVBEMultiboot>
+        <AllowComments>False</AllowComments>
+        <VBEResolution>1024x768x32</VBEResolution>
     </PropertyGroup>
 
     <ItemGroup>
+      <None Remove="Assets\Fonts\Terminal.btf" />
+      <None Remove="Assets\Fonts\Terminus.ttf" />
       <None Remove="Assets\IMG\Logo.bmp" />
       <None Remove="Assets\IMG\Mouse.bmp" />
       <None Remove="Assets\IMG\Taskbar.bmp" />
@@ -31,6 +36,9 @@
     </ItemGroup>
 
     <ItemGroup>
+      <EmbeddedResource Include="Assets\Fonts\Terminal.btf">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </EmbeddedResource>
       <EmbeddedResource Include="Assets\IMG\Logo.bmp" />
       <EmbeddedResource Include="Assets\IMG\Mouse.bmp" />
       <EmbeddedResource Include="Assets\IMG\Taskbar.bmp" />
@@ -42,6 +50,13 @@
         <PackageReference Include="Cosmos.Debug.Kernel" Version="0-*" NoWarn="NU1604" />
         <PackageReference Include="Cosmos.System2" Version="0-*" NoWarn="NU1604" />
         <PackageReference Include="Cosmos.Plugs" Version="0-*" NoWarn="NU1604" />
+        <PackageReference Include="PrismAPI" Version="1.0.3" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Reference Include="SVGAIITerminal">
+        <HintPath>Libraries\SVGAIITerminal.dll</HintPath>
+      </Reference>
     </ItemGroup>
 
 </Project>

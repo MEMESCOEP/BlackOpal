@@ -43,7 +43,7 @@ namespace IO.Networking
 
         public static int ICMPPing(Address IPAddress, int Timeout = 5000)
         {
-            Cosmos.System.Network.IPv4.EndPoint endPoint = new(IPAddress, 0);
+            EndPoint endPoint = new(IPAddress, 0);
 
             using (var xClient = new ICMPClient())
             {

@@ -1,5 +1,8 @@
 ﻿/* [===== CONSOLE FUNCTIONS =====] */
 /* DIRECTIVES */
+using BlackOpal;
+using Cosmos.HAL;
+using PrismAPI.Graphics;
 using System;
 
 /* NAMESPACES */
@@ -21,56 +24,89 @@ namespace IO.CMD
         }
 
         /* FUNCTIONS */
-        // This will print a message to the console with the specified log type. I would use Enum.ToString() here, buit it's not currently
+        // This will print a message to the console with the specified log type. I would use Enum.ToString() here, but it's not currently
         // implemented in Cosmos as of 10-22-2023
         public static void PrintLogMSG(string msg, LogType type)
         {
+            if (Kernel.Terminal != null)
+                Kernel.Terminal.ForegroundColor = Color.White;
+
             switch (type)
             {
                 case LogType.WARNING:
-                    Console.Write("[");
-                    Console.ForegroundColor = ConsoleColor.Yellow;
-                    Console.Write("WARN");
-                    Console.ForegroundColor = ConsoleColor.White;
-                    Console.Write($"] >> {msg}");
+                    if (Kernel.Terminal != null)
+                    {
+                        Kernel.Terminal.Write("[");
+                        Kernel.Terminal.ForegroundColor = Color.Yellow;
+                        Kernel.Terminal.Write("WARN");
+                        Kernel.Terminal.ForegroundColor = Color.White;
+                        Kernel.Terminal.Write($"] >> {msg}");
+                    }
+                        
+                    SerialPort.SendString($"[WARN] >> {msg}");
                     break;
 
                 case LogType.DEBUG:
-                    Console.Write("[");
-                    Console.ForegroundColor = ConsoleColor.Cyan;
-                    Console.Write("DEBUG");
-                    Console.ForegroundColor = ConsoleColor.White;
-                    Console.Write($"] >> {msg}");
+                    if (Kernel.Terminal != null)
+                    {
+                        Kernel.Terminal.Write("[");
+                        Kernel.Terminal.ForegroundColor = Color.Cyan;
+                        Kernel.Terminal.Write("DEBUG");
+                        Kernel.Terminal.ForegroundColor = Color.White;
+                        Kernel.Terminal.Write($"] >> {msg}");
+                    }
+
+                    SerialPort.SendString($"[DEBUG] >> {msg}");
                     break;
 
                 case LogType.ERROR:
-                    Console.Write("[");
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    Console.Write("ERROR");
-                    Console.ForegroundColor = ConsoleColor.White;
-                    Console.Write($"] >> {msg}");
+                    if (Kernel.Terminal != null)
+                    {
+                        Kernel.Terminal.Write("[");
+                        Kernel.Terminal.ForegroundColor = Color.Red;
+                        Kernel.Terminal.Write("ERROR");
+                        Kernel.Terminal.ForegroundColor = Color.White;
+                        Kernel.Terminal.Write($"] >> {msg}");
+                    }                        
+                    
+                    SerialPort.SendString($"[ERROR] >> {msg}");
+
                     break;
 
                 case LogType.FATAL:
-                    Console.Write("[");
-                    Console.ForegroundColor = ConsoleColor.DarkRed;
-                    Console.Write("FATAL");
-                    Console.ForegroundColor = ConsoleColor.White;
-                    Console.Write($"] >> {msg}");
+                    if (Kernel.Terminal != null)
+                    {
+                        Kernel.Terminal.Write("[");
+                        Kernel.Terminal.ForegroundColor = Color.RubyRed;
+                        Kernel.Terminal.Write("FATAL");
+                        Kernel.Terminal.ForegroundColor = Color.White;
+                        Kernel.Terminal.Write($"] >> {msg}");
+                    }
+                    
+                    SerialPort.SendString($"[FATAL] >> {msg}");
+
                     break;
 
                 case LogType.INFO:
-                    Console.Write($"[INFO] >> {msg}");
+                    SerialPort.SendString($"[INFO] >> {msg}");
+
+                    if (Kernel.Terminal != null)
+                        Kernel.Terminal.Write($"[INFO] >> {msg}");
+
                     break;
 
                 case LogType.NONE:
-                    Console.Write(msg);
-                    break;
-
                 default:
-                    Console.Write(msg);
+                    SerialPort.SendString(msg);
+
+                    if (Kernel.Terminal != null)
+                        Kernel.Terminal.Write(msg);
+
                     break;
             }
+
+            if (Kernel.Terminal != null)
+                Kernel.Terminal.ForegroundColor = Kernel.TerminalColor;
         }
     }
 }
