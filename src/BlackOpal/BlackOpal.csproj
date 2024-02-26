@@ -54,6 +54,9 @@
     </ItemGroup>
 
     <ItemGroup>
+      <Reference Include="HydrixLIB">
+        <HintPath>Libraries\HydrixLIB.dll</HintPath>
+      </Reference>
       <Reference Include="SVGAIITerminal">
         <HintPath>Libraries\SVGAIITerminal.dll</HintPath>
       </Reference>
