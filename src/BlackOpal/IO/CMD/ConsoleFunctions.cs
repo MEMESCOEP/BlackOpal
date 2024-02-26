@@ -37,9 +37,7 @@ namespace IO.CMD
                     if (Kernel.Terminal != null)
                     {
                         Kernel.Terminal.Write("[");
-                        Kernel.Terminal.ForegroundColor = Color.Yellow;
-                        Kernel.Terminal.Write("WARN");
-                        Kernel.Terminal.ForegroundColor = Color.White;
+                        Kernel.HTerminal.ColoredWrite("WARN", Color.Yellow);
                         Kernel.Terminal.Write($"] >> {msg}");
                     }
                         
@@ -50,9 +48,7 @@ namespace IO.CMD
                     if (Kernel.Terminal != null)
                     {
                         Kernel.Terminal.Write("[");
-                        Kernel.Terminal.ForegroundColor = Color.Cyan;
-                        Kernel.Terminal.Write("DEBUG");
-                        Kernel.Terminal.ForegroundColor = Color.White;
+                        Kernel.HTerminal.ColoredWrite("DEBUG", Color.Cyan);
                         Kernel.Terminal.Write($"] >> {msg}");
                     }
 
@@ -63,9 +59,7 @@ namespace IO.CMD
                     if (Kernel.Terminal != null)
                     {
                         Kernel.Terminal.Write("[");
-                        Kernel.Terminal.ForegroundColor = Color.Red;
-                        Kernel.Terminal.Write("ERROR");
-                        Kernel.Terminal.ForegroundColor = Color.White;
+                        Kernel.HTerminal.ColoredWrite("ERROR", Color.Red);
                         Kernel.Terminal.Write($"] >> {msg}");
                     }                        
                     
@@ -77,9 +71,7 @@ namespace IO.CMD
                     if (Kernel.Terminal != null)
                     {
                         Kernel.Terminal.Write("[");
-                        Kernel.Terminal.ForegroundColor = Color.RubyRed;
-                        Kernel.Terminal.Write("FATAL");
-                        Kernel.Terminal.ForegroundColor = Color.White;
+                        Kernel.HTerminal.ColoredWrite("FATAL", Color.RubyRed);
                         Kernel.Terminal.Write($"] >> {msg}");
                     }
                     

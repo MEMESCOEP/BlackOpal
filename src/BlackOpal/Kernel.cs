@@ -22,7 +22,7 @@ using BlackOpal.Calculations;
 using SVGAIITerminal.TextKit;
 using PrismAPI.Graphics;
 using Sys = Cosmos.System;
-
+using HydrixLIB;
 /* NAMESPACES */
 namespace BlackOpal
 {
@@ -41,17 +41,19 @@ namespace BlackOpal
         public const string OSAuthor = "memescoep";
         public const string OSName = "Black Opal";
         public const string OSDate = "2-23-2024";
-        public static SVGAIITerminal.SVGAIITerminal Terminal;
+        public static SVGAIITerminal.SVGAIITerminal Terminal = new SVGAIITerminal.SVGAIITerminal(UserInterface.ScreenWidth, UserInterface.ScreenHeight, new BtfFontFace(TTFFont, 16));
         public static TextScreenBase TextScreen;
         public static DateTime KernelStartTime;
-        public static Color TerminalColor = Color.Green;
+        public static Color TerminalColor = Color.StackOverflowWhite;
         public static float TotalInstalledRAM = 0f;
         public static float UsedRAM = 0f;
-        public string CMDPrompt = ">> ";
+        public string CMDPrompt = ">>";
         public string Username = "root";
         public string Hostname = "BlackOpal";
         public Sys.FileSystem.CosmosVFS fs;
-        private BtfFontFace TerminalFont;
+ 
+        public static HTerminal HTerminal = new HTerminal(Terminal);
+        public static string HydrixLibVersion = HTerminal.GetHydrixLibVersion();
 
         /* FUNCTIONS */
         // This function gets called immediately upon kernel startup. It'll be used to initialize a VGA screen, network driver, and IDE controller
@@ -91,17 +93,13 @@ namespace BlackOpal
                 INITCanvas.Display();*/
 
                 // Initialize the terminal
-                ConsoleFunctions.PrintLogMSG("Loading terminal BTF font...\n\r", ConsoleFunctions.LogType.INFO);
-                TerminalFont = new BtfFontFace(TTFFont, 16);
-
-                ConsoleFunctions.PrintLogMSG("Initializing terminal...\n\r", ConsoleFunctions.LogType.INFO);
-                Terminal = new SVGAIITerminal.SVGAIITerminal(UserInterface.ScreenWidth, UserInterface.ScreenHeight, TerminalFont);
 
                 ConsoleFunctions.PrintLogMSG("Configuring terminal...\n\r", ConsoleFunctions.LogType.INFO);
                 Terminal.CursorShape = SVGAIITerminal.CursorShape.Block;
                 Terminal.ForegroundColor = Color.Yellow;
                 Terminal.SetCursorPosition(0, 0);
-
+                Terminal.Clear();
+                ConsoleFunctions.PrintLogMSG($"HydrixLIB Version: {HydrixLibVersion}\n\r", ConsoleFunctions.LogType.INFO);
                 // Commented out because it causes crashes (I probalby fucked it up lmao)
                 // Zero memory so the system starts in a known state
                 /*for (uint i = 512; i < RAT.RamSize; i += 512)
@@ -109,7 +107,6 @@ namespace BlackOpal
                     ConsoleFunctions.PrintLogMSG($"Zeroing memory block {CPU.GetEndOfKernel() + i} -> {CPU.GetEndOfKernel() + i + 512}...\n\r", ConsoleFunctions.LogType.INFO);
                     CPU.ZeroFill(CPU.GetEndOfKernel() + i, 512);
                 }*/
-
                 // Set the keyboard layout (this may help with some keyboards acting funky)
                 ConsoleFunctions.PrintLogMSG($"Setting keyboard layout...\n\r", ConsoleFunctions.LogType.INFO);
                 Sys.KeyboardManager.SetKeyLayout(new Sys.ScanMaps.USStandardLayout());
@@ -195,11 +192,13 @@ namespace BlackOpal
             try
             {
                 // Print the prompt
-                Terminal.ForegroundColor = Color.Magenta;
-                Terminal.Write($"{Username}@{Hostname}");
-                Terminal.ForegroundColor = Color.Green;
-                Terminal.Write($"[{Directory.GetCurrentDirectory()}] {CMDPrompt}");
-                Terminal.ForegroundColor = Color.White;
+                
+                HTerminal.ColoredWrite($"{Username}", Color.Magenta);
+                HTerminal.ColoredWrite("@", Color.White);
+                HTerminal.ColoredWrite($"{Hostname}", Color.Cyan);
+                HTerminal.ColoredWrite($" {{{Directory.GetCurrentDirectory()}}} ", Color.Green);
+                HTerminal.ColoredWrite($"{CMDPrompt} ", Color.SuperOrange);
+                Terminal.ForegroundColor = Color.StackOverflowWhite;
 
                 // Get user input
                 var input = Terminal.ReadLine();
@@ -241,13 +240,137 @@ namespace BlackOpal
                     break;
 
 
-
                 // ** CONSOLE **
                 case "clear":
                 case "cls":
                     Terminal.Clear();
                     break;
-
+                case "help":
+                    //check if there are any arguments
+                    if (arguments.Length == 1)
+                    {
+                        /// #############################
+                        /// Azureian: Please try to keep each header in the help message the same length, it looks better, thanks! (Optionally, you can make it divisible by 2 and add/remove '-' to both sides)
+                        /// Current length: 8 characters
+                        /// #############################
+                        HTerminal.ColoredWrite("Black Opal Help\n", Color.Green);
+                        HTerminal.ColoredWrite("Commands:\n", Color.Green);
+                        //write header Graphics
+                        HTerminal.ColoredWriteLine("  ------------------------------GRAPHICS------------------------------", Color.GoogleBlue);
+                        HTerminal.ColoredWrite("  gui - Start the GUI\n", Color.GoogleBlue);
+                        HTerminal.ColoredWrite("  videomodes - List available video modes\n", Color.GoogleBlue);
+                        HTerminal.ColoredWriteLine("  --------------------------------------------------------------------", Color.GoogleBlue);
+                        Terminal.WriteLine();
+                        HTerminal.ColoredWriteLine("  ------------------------------TERMINAL------------------------------", Color.GoogleGreen);
+                        HTerminal.ColoredWrite("  clear/cls - Clear the console\n", Color.GoogleGreen);
+                        HTerminal.ColoredWrite("  help - Display this help message\n", Color.GoogleGreen);
+                        HTerminal.ColoredWrite("  echo - Print a message to the console\n", Color.GoogleGreen);
+                        HTerminal.ColoredWrite("  power - Shut down or restart the computer\n", Color.GoogleGreen);
+                        HTerminal.ColoredWrite("  sysinfo - Get system information\n", Color.GoogleGreen);
+                        HTerminal.ColoredWrite("  raminfo - Get RAM information\n", Color.GoogleGreen);
+                        HTerminal.ColoredWrite("  diskinfo - Get disk information\n", Color.GoogleGreen);
+                        HTerminal.ColoredWriteLine("  --------------------------------------------------------------------", Color.GoogleGreen);
+                        Terminal.WriteLine();
+                        HTerminal.ColoredWriteLine("  ------------------------------INTERNET------------------------------", Color.GoogleYellow);
+                        HTerminal.ColoredWrite("  netinfo - Get network information\n", Color.GoogleYellow);
+                        HTerminal.ColoredWrite("  netinit - Initialize the NIC\n", Color.GoogleYellow);
+                        HTerminal.ColoredWrite("  nicinfo - Get NIC information\n", Color.GoogleYellow);
+                        HTerminal.ColoredWrite("  ping - Ping a device on the network\n", Color.GoogleYellow);
+                        HTerminal.ColoredWrite("  ntp - Get the current date/time from an NTP server\n", Color.GoogleYellow);
+                        HTerminal.ColoredWriteLine("  --------------------------------------------------------------------", Color.GoogleYellow);
+                        Terminal.WriteLine();
+                        HTerminal.ColoredWriteLine("  ------------------------------FILEMNMT------------------------------", Color.GoogleRed); //File Management
+                        HTerminal.ColoredWrite("  mkf - Make a file\n", Color.GoogleRed);
+                        HTerminal.ColoredWrite("  mkdir - Make a directory\n", Color.GoogleRed);
+                        HTerminal.ColoredWrite("  rm - Delete a file or directory\n", Color.GoogleRed);
+                        HTerminal.ColoredWrite("  cd - Change the current working directory\n", Color.GoogleRed);
+                        HTerminal.ColoredWrite("  dir/ls - Get a directory listing\n", Color.GoogleRed);
+                        HTerminal.ColoredWrite("  cat - Print a file's contents to the console\n", Color.GoogleRed);
+                        HTerminal.ColoredWriteLine("  --------------------------------------------------------------------", Color.GoogleRed);
+                        Terminal.WriteLine();
+                        HTerminal.ColoredWrite("Type 'help <command>' for more information on a specific command.\n", Color.Green);
+                    }
+                    else
+                    {
+                        //check if the argument is a valid command
+                        if (arguments[1] == "clear" || arguments[1] == "cls")
+                        {
+                            HTerminal.ColoredWrite("clear/cls - Clear the console\n", Color.Yellow);
+                        }
+                        else if (arguments[1] == "help")
+                        {
+                            HTerminal.ColoredWrite("help - Display this help message\n", Color.Yellow);
+                        }
+                        else if (arguments[1] == "echo")
+                        {
+                            HTerminal.ColoredWrite("echo - Print a message to the console\n", Color.Yellow);
+                        }
+                        else if (arguments[1] == "power")
+                        {
+                            HTerminal.ColoredWrite("power - Shut down or restart the computer\n", Color.Yellow);
+                        }
+                        else if (arguments[1] == "sysinfo")
+                        {
+                            HTerminal.ColoredWrite("sysinfo - Get system information\n", Color.Yellow);
+                        }
+                        else if (arguments[1] == "raminfo")
+                        {
+                            HTerminal.ColoredWrite("raminfo - Get RAM information\n", Color.Yellow);
+                        }
+                        else if (arguments[1] == "diskinfo")
+                        {
+                            HTerminal.ColoredWrite("diskinfo - Get disk information\n", Color.Yellow);
+                        }
+                        else if (arguments[1] == "netinfo")
+                        {
+                            HTerminal.ColoredWrite("netinfo - Get network information\n", Color.Yellow);
+                        }
+                        else if (arguments[1] == "netinit")
+                        {
+                            HTerminal.ColoredWrite("netinit - Initialize the NIC\n", Color.Yellow);
+                        }
+                        else if (arguments[1] == "nicinfo")
+                        {
+                            HTerminal.ColoredWrite("nicinfo - Get NIC information\n", Color.Yellow);
+                        }
+                        else if (arguments[1] == "ping")
+                        {
+                            HTerminal.ColoredWrite("ping - Ping a device on the network\n", Color.Yellow);
+                        }
+                        else if (arguments[1] == "ntp")
+                        {
+                            HTerminal.ColoredWrite("ntp - Get the current date/time from an NTP server\n", Color.Yellow);
+                        }
+                        else if (arguments[1] == "mkf")
+                        {
+                            HTerminal.ColoredWrite("mkf - Make a file\n", Color.Yellow);
+                        }
+                        else if (arguments[1] == "mkdir")
+                        {
+                            HTerminal.ColoredWrite("mkdir - Make a directory\n", Color.Yellow);
+                        }
+                        else if (arguments[1] == "rm")
+                        {
+                            HTerminal.ColoredWrite("rm - Delete a file or directory\n", Color.Yellow);
+                        }
+                        else if (arguments[1] == "cd")
+                        {
+                            HTerminal.ColoredWrite("cd - Change the current working directory\n", Color.Yellow);
+                        }
+                        else if (arguments[1] == "dir" || arguments[1] == "ls")
+                        {
+                            HTerminal.ColoredWrite("dir/ls - Get a directory listing\n", Color.Yellow);
+                        }
+                        else if (arguments[1] == "cat")
+                        {
+                            HTerminal.ColoredWrite("cat - Print a file's contents to the console\n", Color.Yellow);
+                        }
+                        else
+                        {
+                            HTerminal.ColoredWrite("Invalid command\n", Color.Red);
+                        }
+                    }
+                    break;
 
 
                 // ** NETWORK **
