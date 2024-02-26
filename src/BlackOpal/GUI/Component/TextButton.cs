@@ -1,4 +1,6 @@
-﻿using Cosmos.System;
+﻿using Cosmos.System.Coroutines;
+using Cosmos.System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Drawing;
 using System;
@@ -98,6 +100,13 @@ namespace GUI.Component
         public bool CheckHighlight()
         {
             return ShapeCollision.IsPointInsideRectangle((int)MouseManager.X, (int)MouseManager.Y, ButtonPosition.X, ButtonPosition.Y, ButtonBottomRight.X, ButtonBottomRight.Y);
+        }
+
+        // RUn the button action
+        IEnumerator<CoroutineControlPoint> RunAction()
+        {
+            yield return WaitFor.Milliseconds(25);
+            PressedAction.Invoke();
         }
     }
 }

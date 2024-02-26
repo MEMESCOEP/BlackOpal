@@ -7,7 +7,6 @@
 
 /* DIRECTIVES */
 using Cosmos.System.Network.Config;
-using Cosmos.System.Graphics;
 using Cosmos.Core.Memory;
 using Cosmos.Core;
 using Cosmos.HAL;
@@ -21,8 +20,9 @@ using GUI;
 using BlackOpal.Calculations;
 using SVGAIITerminal.TextKit;
 using PrismAPI.Graphics;
-using Sys = Cosmos.System;
 using HydrixLIB;
+using Sys = Cosmos.System;
+
 /* NAMESPACES */
 namespace BlackOpal
 {
@@ -36,44 +36,25 @@ namespace BlackOpal
         [ManifestResourceStream(ResourceName = "BlackOpal.Assets.Fonts.Terminal.btf")]
         static byte[] TTFFont;
 
-        public const string OSContributors = "Scarlet";
+        public const string OSContributors = "Scarlet & Azure";
         public const string OSVersion = "0.0.3";
         public const string OSAuthor = "memescoep";
         public const string OSName = "Black Opal";
-        public const string OSDate = "2-23-2024";
+        public const string OSDate = "2-26-2024";
         public static SVGAIITerminal.SVGAIITerminal Terminal = new SVGAIITerminal.SVGAIITerminal(UserInterface.ScreenWidth, UserInterface.ScreenHeight, new BtfFontFace(TTFFont, 16));
         public static TextScreenBase TextScreen;
+        public static HTerminal HTerminal = new HTerminal(Terminal);
         public static DateTime KernelStartTime;
-        public static Color TerminalColor = Color.StackOverflowWhite;
+        public static Color TerminalColor = Color.Green;
+        public static string HydrixLibVersion = HTerminal.GetHydrixLibVersion();
         public static float TotalInstalledRAM = 0f;
         public static float UsedRAM = 0f;
         public string CMDPrompt = ">>";
         public string Username = "root";
         public string Hostname = "BlackOpal";
-        public Sys.FileSystem.CosmosVFS fs;
- 
-        public static HTerminal HTerminal = new HTerminal(Terminal);
-        public static string HydrixLibVersion = HTerminal.GetHydrixLibVersion();
+        public Sys.FileSystem.CosmosVFS fs; 
 
         /* FUNCTIONS */
-        // This function gets called immediately upon kernel startup. It'll be used to initialize a VGA screen, network driver, and IDE controller
-        /*protected override void OnBoot()
-        {
-            //base.OnBoot();
-            TextScreen = GetTextScreen();
-            //Sys.Global.Init(TextScreen, false, true, true, true);
-            ConsoleFunctions.PrintLogMSG($"VGA screen initialized.\n\r", ConsoleFunctions.LogType.INFO);
-
-            // Get the start time of the kernel
-            KernelStartTime = DateTime.Now;
-
-            // Set the cursor's height to be a full block
-            //Console.CursorSize = 100;
-
-            // Print a boot message
-            ConsoleFunctions.PrintLogMSG($"Kernel started at {KernelStartTime.ToString()}\n\r", ConsoleFunctions.LogType.INFO);
-        }*/
-
         // Perform initialization and configuration
         protected override void BeforeRun()
         {
@@ -82,31 +63,25 @@ namespace BlackOpal
                 // Get the start time of the kernel
                 KernelStartTime = DateTime.Now;
 
-                // Print a boot message
-                ConsoleFunctions.PrintLogMSG($"Kernel started at {KernelStartTime.ToString()}\n\r", ConsoleFunctions.LogType.INFO);
-
-                // Show a boot screen
-                ConsoleFunctions.PrintLogMSG("Initializing INIT canvas...\n\r", ConsoleFunctions.LogType.INFO);
-                /*INITCanvas = new VBECanvas();
-                INITCanvas.Mode = new Mode(UserInterface.ScreenWidth, UserInterface.ScreenHeight, ColorDepth.ColorDepth32);
-                INITCanvas.DrawString("Loading, please wait...", PCScreenFont.Default, System.Drawing.Color.White, (UserInterface.ScreenWidth / 2) - 92, UserInterface.ScreenHeight / 2);
-                INITCanvas.Display();*/
-
                 // Initialize the terminal
-
                 ConsoleFunctions.PrintLogMSG("Configuring terminal...\n\r", ConsoleFunctions.LogType.INFO);
                 Terminal.CursorShape = SVGAIITerminal.CursorShape.Block;
-                Terminal.ForegroundColor = Color.Yellow;
+                Terminal.ForegroundColor = TerminalColor;
                 Terminal.SetCursorPosition(0, 0);
                 Terminal.Clear();
+
+                // Print a boot message
+                ConsoleFunctions.PrintLogMSG($"Kernel started at {KernelStartTime.ToString()}\n\r", ConsoleFunctions.LogType.INFO);
                 ConsoleFunctions.PrintLogMSG($"HydrixLIB Version: {HydrixLibVersion}\n\r", ConsoleFunctions.LogType.INFO);
-                // Commented out because it causes crashes (I probalby fucked it up lmao)
+
+                // Commented out because it causes crashes (I probably fucked it up lmao)
                 // Zero memory so the system starts in a known state
                 /*for (uint i = 512; i < RAT.RamSize; i += 512)
                 {
                     ConsoleFunctions.PrintLogMSG($"Zeroing memory block {CPU.GetEndOfKernel() + i} -> {CPU.GetEndOfKernel() + i + 512}...\n\r", ConsoleFunctions.LogType.INFO);
                     CPU.ZeroFill(CPU.GetEndOfKernel() + i, 512);
                 }*/
+
                 // Set the keyboard layout (this may help with some keyboards acting funky)
                 ConsoleFunctions.PrintLogMSG($"Setting keyboard layout...\n\r", ConsoleFunctions.LogType.INFO);
                 Sys.KeyboardManager.SetKeyLayout(new Sys.ScanMaps.USStandardLayout());
@@ -168,20 +143,10 @@ namespace BlackOpal
                     $"By: {OSAuthor}, with help from {OSContributors}.\n\r" +
                     $"Kernel started at {KernelStartTime.ToString()} (BTR took {(DateTime.Now.Second - KernelStartTime.Second).ToString()} seconds).\n\r" +
                     $"Terminal size: {Terminal.Width}x{Terminal.Height} ({UserInterface.ScreenWidth}x{UserInterface.ScreenHeight})\n\n\r", ConsoleFunctions.LogType.NONE);
-
-                // Play a startup chime
-                for (uint i = 200; i <= 1000; i += 100)
-                    PCSpeaker.Beep(i, 25);
             }
             catch (Exception ex)
             {
-                Terminal.ForegroundColor = Color.White;
-                Terminal.Clear();
-                ConsoleFunctions.PrintLogMSG($"{ex.Message}\n\rThe system has been halted.\n\r", ConsoleFunctions.LogType.FATAL);
-                PCSpeaker.Beep(500, 250);
-
-                while (true)
-                    CPU.Halt();
+                KernelPanic.Panic(ex.Message, ex.HResult.ToString());
             }
         }
 
@@ -191,12 +156,11 @@ namespace BlackOpal
         {
             try
             {
-                // Print the prompt
-                
+                // Print the prompt                
                 HTerminal.ColoredWrite($"{Username}", Color.Magenta);
                 HTerminal.ColoredWrite("@", Color.White);
                 HTerminal.ColoredWrite($"{Hostname}", Color.Cyan);
-                HTerminal.ColoredWrite($" {{{Directory.GetCurrentDirectory()}}} ", Color.Green);
+                HTerminal.ColoredWrite($" ({Directory.GetCurrentDirectory()}) ", Color.Green);
                 HTerminal.ColoredWrite($"{CMDPrompt} ", Color.SuperOrange);
                 Terminal.ForegroundColor = Color.StackOverflowWhite;
 
@@ -205,11 +169,12 @@ namespace BlackOpal
 
                 // Handle a command
                 var arglist = input.Split(' ');
+
                 HandleCommand(arglist[0], arglist);
             }
-            catch (Exception ex)
+            catch (Exception EX)
             {
-                ConsoleFunctions.PrintLogMSG($"{ex.Message}\n\n\r", ConsoleFunctions.LogType.ERROR);
+                KernelPanic.Panic(EX.Message, EX.HResult.ToString());
             }
         }
 
@@ -219,6 +184,7 @@ namespace BlackOpal
             // Trim all whitespace from the start of the command
             command = command.TrimStart();
 
+            // Handle the command
             switch (command)
             {
                 // ** GRAPHICS **
@@ -229,22 +195,12 @@ namespace BlackOpal
                     gui.Init();
                     break;
 
-                case "videomodes":
-                    var cv = FullScreenCanvas.GetFullScreenCanvas();
-                    foreach (var mode in cv.AvailableModes)
-                    {
-                        ConsoleFunctions.PrintLogMSG($"{mode.Width.ToString()}x{mode.Height.ToString()}@32\n\r", ConsoleFunctions.LogType.NONE);
-                    }
-
-                    cv.Disable();
-                    break;
-
-
                 // ** CONSOLE **
                 case "clear":
                 case "cls":
                     Terminal.Clear();
                     break;
+
                 case "help":
                     //check if there are any arguments
                     if (arguments.Length == 1)
@@ -255,12 +211,13 @@ namespace BlackOpal
                         /// #############################
                         HTerminal.ColoredWrite("Black Opal Help\n", Color.Green);
                         HTerminal.ColoredWrite("Commands:\n", Color.Green);
-                        //write header Graphics
+
+                        // Write header Graphics
                         HTerminal.ColoredWriteLine("  ------------------------------GRAPHICS------------------------------", Color.GoogleBlue);
                         HTerminal.ColoredWrite("  gui - Start the GUI\n", Color.GoogleBlue);
-                        HTerminal.ColoredWrite("  videomodes - List available video modes\n", Color.GoogleBlue);
                         HTerminal.ColoredWriteLine("  --------------------------------------------------------------------", Color.GoogleBlue);
                         Terminal.WriteLine();
+
                         HTerminal.ColoredWriteLine("  ------------------------------TERMINAL------------------------------", Color.GoogleGreen);
                         HTerminal.ColoredWrite("  clear/cls - Clear the console\n", Color.GoogleGreen);
                         HTerminal.ColoredWrite("  help - Display this help message\n", Color.GoogleGreen);
@@ -271,6 +228,7 @@ namespace BlackOpal
                         HTerminal.ColoredWrite("  diskinfo - Get disk information\n", Color.GoogleGreen);
                         HTerminal.ColoredWriteLine("  --------------------------------------------------------------------", Color.GoogleGreen);
                         Terminal.WriteLine();
+
                         HTerminal.ColoredWriteLine("  ------------------------------INTERNET------------------------------", Color.GoogleYellow);
                         HTerminal.ColoredWrite("  netinfo - Get network information\n", Color.GoogleYellow);
                         HTerminal.ColoredWrite("  netinit - Initialize the NIC\n", Color.GoogleYellow);
@@ -279,7 +237,8 @@ namespace BlackOpal
                         HTerminal.ColoredWrite("  ntp - Get the current date/time from an NTP server\n", Color.GoogleYellow);
                         HTerminal.ColoredWriteLine("  --------------------------------------------------------------------", Color.GoogleYellow);
                         Terminal.WriteLine();
-                        HTerminal.ColoredWriteLine("  ------------------------------FILEMNMT------------------------------", Color.GoogleRed); //File Management
+
+                        HTerminal.ColoredWriteLine("  ------------------------------FILEMGMT------------------------------", Color.GoogleRed); //File Management
                         HTerminal.ColoredWrite("  mkf - Make a file\n", Color.GoogleRed);
                         HTerminal.ColoredWrite("  mkdir - Make a directory\n", Color.GoogleRed);
                         HTerminal.ColoredWrite("  rm - Delete a file or directory\n", Color.GoogleRed);
@@ -288,11 +247,17 @@ namespace BlackOpal
                         HTerminal.ColoredWrite("  cat - Print a file's contents to the console\n", Color.GoogleRed);
                         HTerminal.ColoredWriteLine("  --------------------------------------------------------------------", Color.GoogleRed);
                         Terminal.WriteLine();
-                        HTerminal.ColoredWrite("Type 'help <command>' for more information on a specific command.\n", Color.Green);
+
+                        HTerminal.ColoredWriteLine("  ------------------------------DEBUGCMD------------------------------", Color.Magenta);
+                        HTerminal.ColoredWrite("  panic - Force a kernel panic for debugging\n", Color.Magenta);
+                        HTerminal.ColoredWriteLine("  --------------------------------------------------------------------", Color.Magenta);
+                        Terminal.WriteLine();
+
+                        HTerminal.ColoredWrite("Type 'help <command>' for more information on a specific command.\n\n", Color.Green);
                     }
                     else
                     {
-                        //check if the argument is a valid command
+                        // Check if the argument is a valid command
                         if (arguments[1] == "clear" || arguments[1] == "cls")
                         {
                             HTerminal.ColoredWrite("clear/cls - Clear the console\n", Color.Yellow);
@@ -367,7 +332,7 @@ namespace BlackOpal
                         }
                         else
                         {
-                            HTerminal.ColoredWrite("Invalid command\n", Color.Red);
+                            HTerminal.ColoredWrite($"Invalid command: \"{arguments[1]}\"\n", Color.Red);
                         }
                     }
                     break;
@@ -544,7 +509,6 @@ namespace BlackOpal
                     break;
 
                 // Make a directory
-                // Make a file
                 case "mkdir":
                     var newDirName = "";
 
@@ -793,7 +757,7 @@ namespace BlackOpal
 
 
                 // ** EXTRA **
-                // Print what the user put as an argument
+                // Print what the user entered as an argument
                 case "echo":
                     if (arguments.Length <= 1 || string.IsNullOrWhiteSpace(arguments[1]))
                     {
@@ -805,7 +769,12 @@ namespace BlackOpal
                         Terminal.Write($"{arguments[i]} ");
                     }
 
-                    Terminal.WriteLine();
+                    Terminal.WriteLine("\n\r");
+                    break;
+
+                // Force a debug kernel panic
+                case "panic":
+                    KernelPanic.Panic("The user forced a kernel panic for debugging purposes.", "-1");
                     break;
 
                 // Empty command
@@ -819,7 +788,7 @@ namespace BlackOpal
             }
 
             // Collect any garbage that we created. This helps prevent memory leaks, which can cause the computer
-            // to run out of memory, which leads to crashes. Real OSes such as Windows solve this by using both a garbace collector and "swap".
+            // to run out of memory, and crash. Real OSes such as Windows solve this by using both a garbace collector and "swap" memory.
             // Swap is a partition or file that acts as extra (slower) RAM, and is stored on the hard disk. I haven't implemented
             // this yet because I'm focusing on getting the core functionality implemented first, and I believe it's pretty complex to implement.
             // Cosmos also doesn't have stable filesystem support as of right now (11-3-23).

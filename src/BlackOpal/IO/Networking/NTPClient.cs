@@ -1,6 +1,4 @@
-﻿
-
-using Cosmos.System.Network.IPv4;
+﻿using Cosmos.System.Network.IPv4;
 using Cosmos.System.Network.IPv4.UDP;
 using Cosmos.System.Network.IPv4.UDP.DNS;
 using System;
@@ -20,11 +18,11 @@ namespace IO.Networking
             // NTP message size - 16 bytes of the digest (RFC 2030)
             var NTPData = new byte[48];
 
-            //Offset to get to the "Transmit Timestamp" field (time at which the reply 
-            //departed the server for the client, in 64-bit timestamp format."
+            // Offset to get to the "Transmit Timestamp" field (time at which the reply 
+            // departed the server for the client), in 64-bit timestamp format."
             const byte serverReplyTime = 40;
 
-            ConsoleFunctions.PrintLogMSG($"Getting IP address of: \"{NTPServerAddress}\"...\n", ConsoleFunctions.LogType.INFO);
+            ConsoleFunctions.PrintLogMSG($"Getting IP address of: \"{NTPServerAddress}\"...\n\r", ConsoleFunctions.LogType.INFO);
 
             // Create a new DNS client so we can get the IP address of an NTP server
             var DNSClient = new DnsClient();
@@ -37,26 +35,26 @@ namespace IO.Networking
 
             // Get the NTP server's ip address
             var NTPServerIP = new EndPoint(DNSClient.Receive(), NTPPort);
-            ConsoleFunctions.PrintLogMSG($"Got IP: \"{NTPServerIP.Address.ToString()}\"\n", ConsoleFunctions.LogType.INFO);
+            ConsoleFunctions.PrintLogMSG($"Got IP: \"{NTPServerIP.Address.ToString()}\"\n\r", ConsoleFunctions.LogType.INFO);
 
             //var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
             var socket = new UdpClient();
 
             // Connect to the NTP server
-            ConsoleFunctions.PrintLogMSG($"Connecting to NTP server...\n", ConsoleFunctions.LogType.INFO);
+            ConsoleFunctions.PrintLogMSG($"Connecting to NTP server...\n\r", ConsoleFunctions.LogType.INFO);
             socket.Connect(NTPServerIP.Address, NTPPort);
 
             // Set the Leap Indicator, Version Number and Mode values
             NTPData[0] = 0x1B; //LI = 0 (no warning), VN = 3 (IPv4 only), Mode = 3 (Client Mode)
 
-            ConsoleFunctions.PrintLogMSG($"Sending data...\n", ConsoleFunctions.LogType.INFO);
+            ConsoleFunctions.PrintLogMSG($"Sending data...\n\r", ConsoleFunctions.LogType.INFO);
             socket.Send(NTPData);
 
-            ConsoleFunctions.PrintLogMSG($"Receiving data...\n", ConsoleFunctions.LogType.INFO);
+            ConsoleFunctions.PrintLogMSG($"Receiving data...\n\r", ConsoleFunctions.LogType.INFO);
             socket.Receive(ref NTPServerIP);
             socket.Close();
 
-            ConsoleFunctions.PrintLogMSG($"Calculating date & time...\n", ConsoleFunctions.LogType.INFO);
+            ConsoleFunctions.PrintLogMSG($"Calculating date & time...\n\r", ConsoleFunctions.LogType.INFO);
 
             // Get the seconds part
             ulong intPart = BitConverter.ToUInt32(NTPData, serverReplyTime);

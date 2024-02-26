@@ -17,6 +17,7 @@ namespace BlackOpal.Calculations
             return dx * dx + dy * dy <= Radius * Radius;
         }
 
+        // CHeck if a point is inside a rectangle
         public static bool IsPointInsideRectangle(int PX, int PY, int X1, int Y1, int X2, int Y2)
         {
             return Math.Abs(X1) <= PX && PX <= Math.Abs(X2) && Math.Abs(Y1) <= PY && PY <= Math.Abs(Y2);

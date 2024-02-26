@@ -1,9 +1,8 @@
 ﻿/* [===== CONSOLE FUNCTIONS =====] */
 /* DIRECTIVES */
-using BlackOpal;
 using Cosmos.HAL;
+using BlackOpal;
 using PrismAPI.Graphics;
-using System;
 
 /* NAMESPACES */
 namespace IO.CMD
@@ -28,9 +27,6 @@ namespace IO.CMD
         // implemented in Cosmos as of 10-22-2023
         public static void PrintLogMSG(string msg, LogType type)
         {
-            if (Kernel.Terminal != null)
-                Kernel.Terminal.ForegroundColor = Color.White;
-
             switch (type)
             {
                 case LogType.WARNING:
@@ -96,9 +92,6 @@ namespace IO.CMD
 
                     break;
             }
-
-            if (Kernel.Terminal != null)
-                Kernel.Terminal.ForegroundColor = Kernel.TerminalColor;
         }
     }
 }
