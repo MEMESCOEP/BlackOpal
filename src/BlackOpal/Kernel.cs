@@ -6,17 +6,21 @@
 // Using GZIP compresses the ISO image, at the expense of higher memory requirements
 
 /* DIRECTIVES */
+using Cosmos.System.FileSystem.Listing;
 using Cosmos.System.Network.Config;
 using Cosmos.Core.Memory;
 using Cosmos.Core;
 using Cosmos.HAL;
 using IL2CPU.API.Attribs;
+using System.Collections.Generic;
 using System.Threading;
+using System.Linq;
 using System.IO;
 using System;
 using IO.Networking;
 using IO.CMD;
 using GUI;
+using BlackOpal.IO.Filesystem;
 using BlackOpal.Calculations;
 using SVGAIITerminal.TextKit;
 using PrismAPI.Graphics;
@@ -43,6 +47,7 @@ namespace BlackOpal
         public const string OSDate = "2-26-2024";
         public static SVGAIITerminal.SVGAIITerminal Terminal = new SVGAIITerminal.SVGAIITerminal(UserInterface.ScreenWidth, UserInterface.ScreenHeight, new BtfFontFace(TTFFont, 16));
         public static TextScreenBase TextScreen;
+        public static UserInterface UI = new UserInterface();
         public static HTerminal HTerminal = new HTerminal(Terminal);
         public static DateTime KernelStartTime;
         public static Color TerminalColor = Color.Green;
@@ -52,7 +57,7 @@ namespace BlackOpal
         public string CMDPrompt = ">>";
         public string Username = "root";
         public string Hostname = "BlackOpal";
-        public Sys.FileSystem.CosmosVFS fs; 
+        public Sys.FileSystem.CosmosVFS FS; 
 
         /* FUNCTIONS */
         // Perform initialization and configuration
@@ -76,11 +81,15 @@ namespace BlackOpal
 
                 // Commented out because it causes crashes (I probably fucked it up lmao)
                 // Zero memory so the system starts in a known state
-                /*for (uint i = 512; i < RAT.RamSize; i += 512)
+                /*for (uint i = 512; i < 32768; i += 512)
                 {
                     ConsoleFunctions.PrintLogMSG($"Zeroing memory block {CPU.GetEndOfKernel() + i} -> {CPU.GetEndOfKernel() + i + 512}...\n\r", ConsoleFunctions.LogType.INFO);
                     CPU.ZeroFill(CPU.GetEndOfKernel() + i, 512);
                 }*/
+
+                // Initialize ACPI
+                ConsoleFunctions.PrintLogMSG($"Initializing ACPI...\n\r", ConsoleFunctions.LogType.INFO);
+                ACPI.Start();
 
                 // Set the keyboard layout (this may help with some keyboards acting funky)
                 ConsoleFunctions.PrintLogMSG($"Setting keyboard layout...\n\r", ConsoleFunctions.LogType.INFO);
@@ -94,21 +103,21 @@ namespace BlackOpal
                 
                 try
                 {
-                    fs = new();
-                    Sys.FileSystem.VFS.VFSManager.RegisterVFS(fs);
+                    FS = new();
+                    Sys.FileSystem.VFS.VFSManager.RegisterVFS(FS);
 
                     // Set the current working directory (if we can)
-                    if (fs.Disks.Count > 0)
+                    if (FS.Disks.Count > 0)
                     {
                         ConsoleFunctions.PrintLogMSG("Setting the current working directory...\n\r", ConsoleFunctions.LogType.INFO);
-                        foreach (var disk in fs.Disks)
+                        foreach (var Disk in FS.Disks)
                         {
-                            if (disk.Partitions.Count > 0)
+                            if (Disk.Partitions.Count > 0)
                             {
-                                if (disk.Partitions[0].HasFileSystem && String.IsNullOrEmpty(disk.Partitions[0].RootPath) == false)
+                                if (Disk.Partitions[0].HasFileSystem && String.IsNullOrEmpty(Disk.Partitions[0].RootPath) == false)
                                 {
-                                    Directory.SetCurrentDirectory(disk.Partitions[0].RootPath);
-                                    ConsoleFunctions.PrintLogMSG($"Working directory is: \"{disk.Partitions[0].RootPath}\"\n\r", ConsoleFunctions.LogType.INFO);
+                                    Directory.SetCurrentDirectory(Disk.Partitions[0].RootPath);
+                                    ConsoleFunctions.PrintLogMSG($"Working directory is: \"{Disk.Partitions[0].RootPath}\"\n\r", ConsoleFunctions.LogType.INFO);
                                     break;
                                 }
                             }
@@ -125,9 +134,9 @@ namespace BlackOpal
                         Terminal.ReadKey();
                     }
                 }
-                catch(Exception ex)
+                catch(Exception EX)
                 {
-                    ConsoleFunctions.PrintLogMSG($"Disk init error: {ex.Message}\n\n\rPress any key to continue.", ConsoleFunctions.LogType.ERROR);
+                    ConsoleFunctions.PrintLogMSG($"Disk init error: {EX.Message}\n\n\rPress any key to continue.", ConsoleFunctions.LogType.ERROR);
                     Terminal.ReadKey();
                 }
 
@@ -144,9 +153,9 @@ namespace BlackOpal
                     $"Kernel started at {KernelStartTime.ToString()} (BTR took {(DateTime.Now.Second - KernelStartTime.Second).ToString()} seconds).\n\r" +
                     $"Terminal size: {Terminal.Width}x{Terminal.Height} ({UserInterface.ScreenWidth}x{UserInterface.ScreenHeight})\n\n\r", ConsoleFunctions.LogType.NONE);
             }
-            catch (Exception ex)
+            catch (Exception EX)
             {
-                KernelPanic.Panic(ex.Message, ex.HResult.ToString());
+                KernelPanic.Panic(EX.Message, EX.HResult.ToString());
             }
         }
 
@@ -165,12 +174,12 @@ namespace BlackOpal
                 Terminal.ForegroundColor = Color.StackOverflowWhite;
 
                 // Get user input
-                var input = Terminal.ReadLine();
+                var Input = Terminal.ReadLine();
 
                 // Handle a command
-                var arglist = input.Split(' ');
+                var ArgList = Input.Split(' ');
 
-                HandleCommand(arglist[0], arglist);
+                HandleCommand(ArgList[0], ArgList);
             }
             catch (Exception EX)
             {
@@ -179,20 +188,18 @@ namespace BlackOpal
         }
 
         // Handle a command
-        private void HandleCommand(string command, string[] arguments)
+        private void HandleCommand(string Command, string[] Arguments)
         {
             // Trim all whitespace from the start of the command
-            command = command.TrimStart();
+            Command = Command.TrimStart();
 
             // Handle the command
-            switch (command)
+            switch (Command)
             {
                 // ** GRAPHICS **
                 case "gui":
-                    ConsoleFunctions.PrintLogMSG("Initializing GUI...\n\r", ConsoleFunctions.LogType.INFO);
-
-                    UserInterface gui = new();
-                    gui.Init();
+                    ConsoleFunctions.PrintLogMSG("Initializing GUI...\n\r", ConsoleFunctions.LogType.INFO);                    
+                    UI.Init();
                     break;
 
                 // ** CONSOLE **
@@ -202,8 +209,8 @@ namespace BlackOpal
                     break;
 
                 case "help":
-                    //check if there are any arguments
-                    if (arguments.Length == 1)
+                    // Check if there are any arguments
+                    if (Arguments.Length == 1)
                     {
                         /// #############################
                         /// Azureian: Please try to keep each header in the help message the same length, it looks better, thanks! (Optionally, you can make it divisible by 2 and add/remove '-' to both sides)
@@ -257,83 +264,7 @@ namespace BlackOpal
                     }
                     else
                     {
-                        // Check if the argument is a valid command
-                        if (arguments[1] == "clear" || arguments[1] == "cls")
-                        {
-                            HTerminal.ColoredWrite("clear/cls - Clear the console\n", Color.Yellow);
-                        }
-                        else if (arguments[1] == "help")
-                        {
-                            HTerminal.ColoredWrite("help - Display this help message\n", Color.Yellow);
-                        }
-                        else if (arguments[1] == "echo")
-                        {
-                            HTerminal.ColoredWrite("echo - Print a message to the console\n", Color.Yellow);
-                        }
-                        else if (arguments[1] == "power")
-                        {
-                            HTerminal.ColoredWrite("power - Shut down or restart the computer\n", Color.Yellow);
-                        }
-                        else if (arguments[1] == "sysinfo")
-                        {
-                            HTerminal.ColoredWrite("sysinfo - Get system information\n", Color.Yellow);
-                        }
-                        else if (arguments[1] == "raminfo")
-                        {
-                            HTerminal.ColoredWrite("raminfo - Get RAM information\n", Color.Yellow);
-                        }
-                        else if (arguments[1] == "diskinfo")
-                        {
-                            HTerminal.ColoredWrite("diskinfo - Get disk information\n", Color.Yellow);
-                        }
-                        else if (arguments[1] == "netinfo")
-                        {
-                            HTerminal.ColoredWrite("netinfo - Get network information\n", Color.Yellow);
-                        }
-                        else if (arguments[1] == "netinit")
-                        {
-                            HTerminal.ColoredWrite("netinit - Initialize the NIC\n", Color.Yellow);
-                        }
-                        else if (arguments[1] == "nicinfo")
-                        {
-                            HTerminal.ColoredWrite("nicinfo - Get NIC information\n", Color.Yellow);
-                        }
-                        else if (arguments[1] == "ping")
-                        {
-                            HTerminal.ColoredWrite("ping - Ping a device on the network\n", Color.Yellow);
-                        }
-                        else if (arguments[1] == "ntp")
-                        {
-                            HTerminal.ColoredWrite("ntp - Get the current date/time from an NTP server\n", Color.Yellow);
-                        }
-                        else if (arguments[1] == "mkf")
-                        {
-                            HTerminal.ColoredWrite("mkf - Make a file\n", Color.Yellow);
-                        }
-                        else if (arguments[1] == "mkdir")
-                        {
-                            HTerminal.ColoredWrite("mkdir - Make a directory\n", Color.Yellow);
-                        }
-                        else if (arguments[1] == "rm")
-                        {
-                            HTerminal.ColoredWrite("rm - Delete a file or directory\n", Color.Yellow);
-                        }
-                        else if (arguments[1] == "cd")
-                        {
-                            HTerminal.ColoredWrite("cd - Change the current working directory\n", Color.Yellow);
-                        }
-                        else if (arguments[1] == "dir" || arguments[1] == "ls")
-                        {
-                            HTerminal.ColoredWrite("dir/ls - Get a directory listing\n", Color.Yellow);
-                        }
-                        else if (arguments[1] == "cat")
-                        {
-                            HTerminal.ColoredWrite("cat - Print a file's contents to the console\n", Color.Yellow);
-                        }
-                        else
-                        {
-                            HTerminal.ColoredWrite($"Invalid command: \"{arguments[1]}\"\n", Color.Red);
-                        }
+                        Help.ShowHelp(Arguments[1]);
                     }
                     break;
 
@@ -345,9 +276,9 @@ namespace BlackOpal
                     {
                         Terminal.WriteLine(NTPClient.GetNetworkTime().ToString());
                     }
-                    catch (Exception ex)
+                    catch (Exception EX)
                     {
-                        ConsoleFunctions.PrintLogMSG($"{ex.Message}\n\n\r", ConsoleFunctions.LogType.ERROR);
+                        ConsoleFunctions.PrintLogMSG($"{EX.Message}\n\n\r", ConsoleFunctions.LogType.ERROR);
                     }
 
                     break;
@@ -375,24 +306,24 @@ namespace BlackOpal
                         break;
                     }
 
-                    if (arguments.Length <= 1 || string.IsNullOrWhiteSpace(arguments[1]))
+                    if (Arguments.Length <= 1 || string.IsNullOrWhiteSpace(Arguments[1]))
                     {
                         ConsoleFunctions.PrintLogMSG($"An IP address must be specified.\n\n\r", ConsoleFunctions.LogType.ERROR);
                         break;
                     }
 
-                    if (Network.IsIPv4AddressValid(arguments[1]) == false)
+                    if (Network.IsIPv4AddressValid(Arguments[1]) == false)
                     {
-                        ConsoleFunctions.PrintLogMSG($"\"{arguments[1]}\" is not a valid IP address.\n\n\r", ConsoleFunctions.LogType.ERROR);
+                        ConsoleFunctions.PrintLogMSG($"\"{Arguments[1]}\" is not a valid IP address.\n\n\r", ConsoleFunctions.LogType.ERROR);
                         break;
                     }
 
-                    Terminal.WriteLine($"Pinging {arguments[1]}:");
+                    Terminal.WriteLine($"Pinging {Arguments[1]}:");
                     int SuccessCounter = 0;
 
                     for (int i = 0; i < 4; i++)
                     {
-                        float PingTime = Network.ICMPPing(Network.StringToAddress(arguments[1]));
+                        float PingTime = Network.ICMPPing(Network.StringToAddress(Arguments[1]));
 
                         if(PingTime >= 0)
                         {
@@ -419,9 +350,9 @@ namespace BlackOpal
                         break;
                     }
 
-                    foreach (var config in NetworkConfiguration.NetworkConfigs)
+                    foreach (var Config in NetworkConfiguration.NetworkConfigs)
                     {
-                        Terminal.WriteLine($"[== {config.Device.NameID} ==]\n" +
+                        Terminal.WriteLine($"[== {Config.Device.NameID} ==]\n" +
                                     $"IP: {NetworkConfiguration.CurrentNetworkConfig.IPConfig.IPAddress.ToString()}\n" +
                                     $"SUBNET: {NetworkConfiguration.CurrentNetworkConfig.IPConfig.SubnetMask.ToString()}\n" +
                                     $"DEFAULT GATEWAY: {NetworkConfiguration.CurrentNetworkConfig.IPConfig.DefaultGateway.ToString()}\n" +
@@ -433,9 +364,9 @@ namespace BlackOpal
 
                 // Initialize the NIC
                 case "netinit":
-                    if (arguments.Length >= 1)
+                    if (Arguments.Length >= 1)
                     {
-                        if (arguments[1] == "dhcp")
+                        if (Arguments[1] == "dhcp")
                         {
                             ConsoleFunctions.PrintLogMSG("Attempting to obtain an IPv4 address via DHCP...\n\r", ConsoleFunctions.LogType.INFO);
 
@@ -469,152 +400,106 @@ namespace BlackOpal
                 // ** FILESYSTEM **
                 // Make a file
                 case "mkf":
-                    var newFileName = "";
+                    var NewFileName = "";
 
-                    if (arguments.Length <= 1 || string.IsNullOrWhiteSpace(arguments[1]))
+                    if (Arguments.Length <= 1 || string.IsNullOrWhiteSpace(Arguments[1]))
                     {
                         ConsoleFunctions.PrintLogMSG($"A file name must be specified.\n\n\r", ConsoleFunctions.LogType.ERROR);
                         break;
                     }
 
-                    if (arguments[1].StartsWith("\""))
-                    {
-                        newFileName = "";
+                    NewFileName = PathUtils.GetValidPath(PathUtils.ListToPath(Arguments.ToList(), true));
 
-                        foreach (var part in arguments)
-                        {
-                            newFileName += part + " ";
-                        }
-
-                        // Get the file name inside of a the quotes
-                        int pFrom = newFileName.IndexOf("\"") + 1;
-                        int pTo = newFileName.LastIndexOf("\"");
-                        newFileName = newFileName.Substring(pFrom, pTo - pFrom);
-                        newFileName.Replace($"{command} ", "").TrimEnd();
-                    }
-                    else
+                    if (Path.GetFileName(NewFileName).Length > 8)
                     {
-                        newFileName = arguments[1];
-                    }
-
-                    if (File.Exists(newFileName) == true)
-                    {
-                        ConsoleFunctions.PrintLogMSG($"The file \"{newFileName}\" already exists.\n\n\r", ConsoleFunctions.LogType.ERROR);
+                        ConsoleFunctions.PrintLogMSG($"The filename cannot be greater than 8 characters.\n\n\r", ConsoleFunctions.LogType.ERROR);
                         break;
                     }
 
-                    newFileName = Path.GetFullPath(newFileName);
-                    fs.CreateFile(newFileName);
+                    if (File.Exists(NewFileName) == true)
+                    {
+                        ConsoleFunctions.PrintLogMSG($"The file \"{NewFileName}\" already exists.\n\n\r", ConsoleFunctions.LogType.ERROR);
+                        break;
+                    }
+
+                    NewFileName = Path.GetFullPath(NewFileName);
+                    FS.CreateFile(NewFileName);
 
                     break;
 
                 // Make a directory
                 case "mkdir":
-                    var newDirName = "";
+                    var NewDirName = "";
 
-                    if (arguments.Length <= 1 || string.IsNullOrWhiteSpace(arguments[1]))
+                    if (Arguments.Length <= 1 || string.IsNullOrWhiteSpace(Arguments[1]))
                     {
                         ConsoleFunctions.PrintLogMSG($"A directory name must be specified.\n\n\r", ConsoleFunctions.LogType.ERROR);
                         break;
                     }
 
-                    if (arguments[1].StartsWith("\""))
-                    {
-                        newDirName = "";
+                    NewDirName = PathUtils.GetValidPath(PathUtils.ListToPath(Arguments.ToList(), true));
 
-                        foreach (var part in arguments)
-                        {
-                            newDirName += part + " ";
-                        }
-
-                        // Get the directory name inside of a the quotes
-                        int pFrom = newDirName.IndexOf("\"") + 1;
-                        int pTo = newDirName.LastIndexOf("\"");
-                        newDirName = newDirName.Substring(pFrom, pTo - pFrom);
-                        newDirName.Replace($"{command} ", "").TrimEnd();
-                    }
-                    else
+                    if (Directory.Exists(NewDirName) == true)
                     {
-                        newDirName = arguments[1];
-                    }
-
-                    if (Directory.Exists(newDirName) == true)
-                    {
-                        ConsoleFunctions.PrintLogMSG($"The directory \"{newDirName}\" already exists.\n\n\r", ConsoleFunctions.LogType.ERROR);
+                        ConsoleFunctions.PrintLogMSG($"The directory \"{NewDirName}\" already exists.\n\n\r", ConsoleFunctions.LogType.ERROR);
                         break;
                     }
 
-                    newFileName = Path.GetFullPath(newDirName);
-                    fs.CreateDirectory(newDirName);
+                    NewDirName = Path.GetFullPath(NewDirName);
+                    FS.CreateDirectory(NewDirName);
 
                     break;
 
                 // Delete a file or directory
                 case "rm":
+                    bool DeleteDir = false;
                     int PathArgIndex = 1;
-                    var newPathName = "";
-                    bool deleteDir = false;
+                    var NewPathName = "";
 
-                    foreach(var arg in arguments)
+                    foreach(var Arg in Arguments)
                     {
-                        if (arg == "-rf")
+                        if (Arg == "-rf")
                         {
-                            PathArgIndex += 1;
-                            deleteDir = true;
+                            DeleteDir = true;
+                            var ArgsList = Arguments.ToList();
+
+                            ArgsList.RemoveAt(1);
+                            Arguments = ArgsList.ToArray();
                             break;
                         }
                     }
 
-                    if (arguments.Length <= PathArgIndex || string.IsNullOrWhiteSpace(arguments[PathArgIndex]))
+                    if (Arguments.Length <= PathArgIndex || string.IsNullOrWhiteSpace(Arguments[PathArgIndex]))
                     {
                         ConsoleFunctions.PrintLogMSG($"A file or directory name must be specified.\n\n\r", ConsoleFunctions.LogType.ERROR);
                         break;
                     }
 
-                    if (arguments[PathArgIndex].StartsWith("\""))
+                    NewPathName = PathUtils.GetValidPath(PathUtils.ListToPath(Arguments.ToList(), true));
+                    NewPathName = Path.GetFullPath(NewPathName);
+
+                    if (File.Exists(NewPathName))
                     {
-                        newPathName = "";
-
-                        foreach (var part in arguments)
-                        {
-                            newPathName += part + " ";
-                        }
-
-                        // Get the path inside of a the quotes
-                        int pFrom = newPathName.IndexOf("\"") + 1;
-                        int pTo = newPathName.LastIndexOf("\"");
-                        newPathName = newPathName.Substring(pFrom, pTo - pFrom);
-                        newPathName.Replace($"{command} ", "").TrimEnd();
+                        File.Delete(NewPathName);
+                    }
+                    else if (Directory.Exists(NewPathName) && DeleteDir)
+                    {
+                        Directory.Delete(NewPathName);
                     }
                     else
                     {
-                        newPathName = arguments[PathArgIndex];
-                    }
-
-                    newPathName = Path.GetFullPath(newPathName);
-
-                    if (File.Exists(newPathName))
-                    {
-                        File.Delete(newPathName);
-                    }
-                    else if (Directory.Exists(newPathName) && deleteDir)
-                    {
-                        Directory.Delete(newPathName);
-                    }
-                    else
-                    {
-                        ConsoleFunctions.PrintLogMSG($"The item \"{newPathName}\" doesn't exist.\n\n\r", ConsoleFunctions.LogType.ERROR);
+                        ConsoleFunctions.PrintLogMSG($"The item \"{NewPathName}\" doesn't exist.\n\n\r", ConsoleFunctions.LogType.ERROR);
                     }
 
                     break;
 
                 // Get information about each installed (and functioning) disk
                 case "diskinfo":
-                    foreach(var disk in fs.Disks)
+                    foreach(var Disk in FS.Disks)
                     {
-                        Terminal.WriteLine($"[== DISK #{fs.Disks.IndexOf(disk)} ==]");
-                        disk.DisplayInformation();
-                        Terminal.WriteLine($"Root path: {disk.Partitions[0].RootPath}\n");
+                        Terminal.WriteLine($"[== DISK #{FS.Disks.IndexOf(Disk)} ==]");
+                        Disk.DisplayInformation();
+                        Terminal.WriteLine($"Root path: {Disk.Partitions[0].RootPath}\n");
                     }
 
                     Terminal.WriteLine();
@@ -622,83 +507,171 @@ namespace BlackOpal
 
                 // Change the current working directory
                 case "cd":
-                    var dir = "";
+                    var Dir = "0:\\";
 
-                    if (arguments.Length <= 1 || string.IsNullOrWhiteSpace(arguments[1]))
+                    // Check to make sure arguments exist
+                    if (Arguments.Length <= 1 || string.IsNullOrWhiteSpace(Arguments[1]))
                     {
                         ConsoleFunctions.PrintLogMSG($"A directory name must be specified.\n\n\r", ConsoleFunctions.LogType.ERROR);
                         break;
                     }
 
-                    if (arguments[1].StartsWith("\""))
-                    {
-                        dir = "";
+                    // Get a valid path from the above path
+                    Dir = PathUtils.GetValidPath(PathUtils.ListToPath(Arguments.ToList(), true));
 
-                        foreach (var part in arguments)
-                        {
-                            dir += part + " ";
-                        }
-
-                        // Get the directory name inside of a the quotes
-                        int pFrom = dir.IndexOf("\"") + 1;
-                        int pTo = dir.LastIndexOf("\"");
-                        dir = dir.Substring(pFrom, pTo - pFrom);
-                        dir.Replace($"{command} ", "").TrimEnd();
-                    }
-                    else
+                    // Make sure the valid directory exists
+                    if (Directory.Exists(Dir) == false)
                     {
-                        dir = arguments[1];
-                    }
-
-                    if (Directory.Exists(dir) == false)
-                    {
-                        ConsoleFunctions.PrintLogMSG($"The directory \"{dir}\" does not exist.\n\n\r", ConsoleFunctions.LogType.ERROR);
+                        ConsoleFunctions.PrintLogMSG($"The directory \"{Dir}\" does not exist.\n\n\r", ConsoleFunctions.LogType.ERROR);
                         break;
                     }
 
-                    dir = Path.GetFullPath(dir);
-                    Directory.SetCurrentDirectory(dir);
-
+                    // Change to the new directory
+                    Dir = Path.GetFullPath(Dir);
+                    Directory.SetCurrentDirectory(Dir);
                     break;
 
                 // Get a directory listing
                 case "dir":
                 case "ls":
-                    foreach (var item in fs.GetDirectoryListing(Directory.GetCurrentDirectory()))
-                    {
-                        if (File.Exists(item.mFullPath))
-                            Terminal.WriteLine($"[FILE] {item.mName}");
+                    string SearchDirectory = Directory.GetCurrentDirectory();
 
-                        else if (Directory.Exists(item.mFullPath))
-                            Terminal.WriteLine($"[DIR] {item.mName}");
+                    if (Arguments.Length >= 2)
+                    {
+                        SearchDirectory = Path.GetFullPath(Arguments[1]);
+                    }
+
+                    if (Directory.Exists(SearchDirectory) == false)
+                    {
+                        ConsoleFunctions.PrintLogMSG($"The directory \"{SearchDirectory}\" does not exist.\n\n\r", ConsoleFunctions.LogType.ERROR);
+                        break;
+                    }
+
+                    var EntryList = new List<DirectoryEntry>();
+                    int LongestItemLength = 0;
+
+                    foreach (var Item in FS.GetDirectoryListing(SearchDirectory))
+                    {
+                        if (File.Exists(Item.mFullPath) && Item.mName.Length > LongestItemLength)
+                        {
+                            LongestItemLength = Item.mName.Length;
+                        }
+                            
+                        EntryList.Add(Item);                 
+                    }
+
+                    foreach (var Entry in EntryList)
+                    {
+                        if (File.Exists(Entry.mFullPath))
+                        {
+                            HTerminal.ColoredWrite("[FILE] ", Color.GoogleGreen);
+                            Terminal.Write(Entry.mName);
+                            HTerminal.ColoredWrite($" ---{new string('-', LongestItemLength - Entry.mName.Length)} ", Color.UltraViolet);
+                            HTerminal.ColoredWriteLine($"{Entry.mSize / 1024f} KB", Color.Magenta);
+                        }
+
+                        else if (Directory.Exists(Entry.mFullPath))
+                        {
+                            HTerminal.ColoredWrite("[DIR] ", Color.GoogleBlue);
+                            Terminal.WriteLine(Entry.mName);
+                        }
                     }
 
                     Terminal.WriteLine();
+                    break;
+
+                // Get a valid path from
+                case "validpath":
+                    Terminal.WriteLine($"\"{PathUtils.GetValidPath(Arguments[1])}\"");
                     break;
 
                 // Print a file's contents to the console
                 case "cat":
                     try
                     {
-                        if (arguments.Length <= 1 || string.IsNullOrWhiteSpace(arguments[1]))
+                        var FilePath = Path.GetFullPath(PathUtils.GetValidPath(Arguments[1]));
+
+                        if (FilePath.Length <= 1 || string.IsNullOrWhiteSpace(FilePath))
                         {
                             ConsoleFunctions.PrintLogMSG($"A file name must be specified.\n\n\r", ConsoleFunctions.LogType.ERROR);
                         }
 
-                        else if (File.Exists(Path.GetFullPath(arguments[1])) == false)
+                        else if (File.Exists(Path.GetFullPath(FilePath)) == false)
                         {
-                            ConsoleFunctions.PrintLogMSG($"The file \"{arguments[1]}\" does not exist.\n\n\r", ConsoleFunctions.LogType.ERROR);
+                            ConsoleFunctions.PrintLogMSG($"The file \"{FilePath}\" does not exist.\n\n\r", ConsoleFunctions.LogType.ERROR);
                         }
 
                         else
                         {
-                            var contents = File.ReadAllText(Path.GetFullPath(arguments[1]));
-                            Terminal.WriteLine($"{contents}\n");
+                            Terminal.WriteLine($"{File.ReadAllText(FilePath)}\n");
                         }
                     }
-                    catch (Exception ex)
+                    catch (Exception EX)
                     {
-                        ConsoleFunctions.PrintLogMSG($"{ex.Message}\n\n\r", ConsoleFunctions.LogType.ERROR);
+                        ConsoleFunctions.PrintLogMSG($"{EX.Message}\n\n\r", ConsoleFunctions.LogType.ERROR);
+                    }
+
+                    break;
+
+                // Print a file's contents to the console in hex
+                case "hex":
+                    try
+                    {
+                        var FilePath = Path.GetFullPath(PathUtils.GetValidPath(Arguments[1]));
+
+                        if (FilePath.Length <= 1 || string.IsNullOrWhiteSpace(FilePath))
+                        {
+                            ConsoleFunctions.PrintLogMSG($"A file name must be specified.\n\n\r", ConsoleFunctions.LogType.ERROR);
+                        }
+
+                        else if (File.Exists(Path.GetFullPath(FilePath)) == false)
+                        {
+                            ConsoleFunctions.PrintLogMSG($"The file \"{FilePath}\" does not exist.\n\n\r", ConsoleFunctions.LogType.ERROR);
+                        }
+
+                        else
+                        {
+                            // Temporary variables
+                            string ByteHex = "00";
+                            byte[] Content = File.ReadAllBytes(Path.GetFullPath(FilePath));
+                            int LineNumber = 1;
+
+                            // Print the first line number
+                            HTerminal.ColoredWrite($"{LineNumber}: ", Color.GoogleGreen);
+
+                            // Loop through each byte in the file
+                            for (long ByteIndex = 0; ByteIndex < Content.Length; ByteIndex++)
+                            {
+                                // Convert the byte to hex
+                                ByteHex = $"{Convert.ToInt32(Content[ByteIndex]):X}";
+
+                                // Add a leading zero if the byte is <= 15 (this is for formatting purposes)
+                                if (Convert.ToInt32(ByteHex, 16) <= 15)
+                                {
+                                    ByteHex = ByteHex.Insert(0, "0");
+                                }
+
+                                // Print the hex byte
+                                Terminal.Write($"{ByteHex} ");
+
+                                // If more than 12 characters have been printed on the current line, start a new line
+                                if ((ByteIndex + 1) % 12 == 0 && ByteIndex > 0 && Content.Length != 12)
+                                {
+                                    LineNumber++;
+                                    Terminal.WriteLine();
+                                    HTerminal.ColoredWrite($"{LineNumber}: ", Color.GoogleGreen);
+
+                                    // Collect garbage so the OS doesn't crash
+                                    Heap.Collect();
+                                }
+                            }
+
+                            Terminal.WriteLine("\n\r");
+                        }
+                    }
+                    catch (Exception EX)
+                    {
+                        ConsoleFunctions.PrintLogMSG($"{EX.Message}\n\n\r", ConsoleFunctions.LogType.ERROR);
                     }
 
                     break;
@@ -708,28 +681,40 @@ namespace BlackOpal
                 // ** POWER **
                 // Shut down / restart the computer
                 case "power":
-                    if (arguments.Length <= 1)
+                    if (Arguments.Length <= 1)
                     {
-                        ConsoleFunctions.PrintLogMSG("Please specify a power operation.\n\r  1. -s = shutdown\n\r  2. -r = reboot\n\n\r", ConsoleFunctions.LogType.ERROR);
+                        ConsoleFunctions.PrintLogMSG("Please specify a power operation.\n\r  1. -s = shutdown\n\r  2. -r = reboot\n\r  3. -as = ACPI shutdown\n\r  4. -ar = ACPI reboot\n\n\r", ConsoleFunctions.LogType.ERROR);
                         break;
                     }
 
-                    switch (arguments[1])
+                    switch (Arguments[1])
                     {
                         case "-s":
-                            ConsoleFunctions.PrintLogMSG("Shutting down...", ConsoleFunctions.LogType.INFO);
-                            Thread.Sleep(1000);
+                            ConsoleFunctions.PrintLogMSG("Shutting down...\n\n\r", ConsoleFunctions.LogType.INFO);
+                            Thread.Sleep(250);
                             Sys.Power.Shutdown();
                             break;
 
                         case "-r":
-                            ConsoleFunctions.PrintLogMSG("Rebooting...", ConsoleFunctions.LogType.INFO);
-                            Thread.Sleep(1000);
+                            ConsoleFunctions.PrintLogMSG("Rebooting...\n\n\r", ConsoleFunctions.LogType.INFO);
+                            Thread.Sleep(250);
                             Sys.Power.Reboot();
                             break;
 
+                        case "-as":
+                            ConsoleFunctions.PrintLogMSG("Shutting down (ACPI)...\n\n\r", ConsoleFunctions.LogType.INFO);
+                            Thread.Sleep(250);
+                            ACPI.Shutdown();
+                            break;
+
+                        case "-ar":
+                            ConsoleFunctions.PrintLogMSG("Rebooting (ACPI)...\n\n\r", ConsoleFunctions.LogType.INFO);
+                            Thread.Sleep(250);
+                            ACPI.Reboot();
+                            break;
+
                         default:
-                            ConsoleFunctions.PrintLogMSG("Invalid power operation.\n\r  1. -s = shutdown\n\r  2. -r = reboot\n\n\r", ConsoleFunctions.LogType.ERROR);
+                            ConsoleFunctions.PrintLogMSG("Invalid power operation.\n\r  1. -s = shutdown\n\r  2. -r = reboot\n\r  3. -as = ACPI shutdown\n\r  4. -ar = ACPI reboot\n\n\r", ConsoleFunctions.LogType.ERROR);
                             break;
                     }
                     
@@ -759,14 +744,14 @@ namespace BlackOpal
                 // ** EXTRA **
                 // Print what the user entered as an argument
                 case "echo":
-                    if (arguments.Length <= 1 || string.IsNullOrWhiteSpace(arguments[1]))
+                    if (Arguments.Length <= 1 || string.IsNullOrWhiteSpace(Arguments[1]))
                     {
                         break;
                     }
 
-                    for (int i = 1; i < arguments.Length; i++)
+                    for (int i = 1; i < Arguments.Length; i++)
                     {
-                        Terminal.Write($"{arguments[i]} ");
+                        Terminal.Write($"{Arguments[i]} ");
                     }
 
                     Terminal.WriteLine("\n\r");
@@ -783,14 +768,14 @@ namespace BlackOpal
 
                 // Invalid command
                 default:
-                    ConsoleFunctions.PrintLogMSG($"Invalid command: \"{command}\"\n\n\r", ConsoleFunctions.LogType.ERROR);
+                    ConsoleFunctions.PrintLogMSG($"Invalid command: \"{Command}\"\n\n\r", ConsoleFunctions.LogType.ERROR);
                     break;
             }
 
             // Collect any garbage that we created. This helps prevent memory leaks, which can cause the computer
             // to run out of memory, and crash. Real OSes such as Windows solve this by using both a garbace collector and "swap" memory.
             // Swap is a partition or file that acts as extra (slower) RAM, and is stored on the hard disk. I haven't implemented
-            // this yet because I'm focusing on getting the core functionality implemented first, and I believe it's pretty complex to implement.
+            // this yet because I'm focusing on getting the core functionality implemented first, and I believe it's fairly complex.
             // Cosmos also doesn't have stable filesystem support as of right now (11-3-23).
             Heap.Collect();
         }

@@ -17,7 +17,7 @@ using Color = PrismAPI.Graphics.Color;
 
 namespace GUI
 {
-    internal class UserInterface
+    public class UserInterface
     {
         /* VARIABLES */
         [ManifestResourceStream(ResourceName = "BlackOpal.Assets.IMG.Mouse.bmp")]
@@ -54,76 +54,80 @@ namespace GUI
         {
             try
             {
-                // Initialize the canvas
-                ConsoleFunctions.PrintLogMSG($"Initializing the canvas ({ScreenWidth}x{ScreenHeight}@32)...\n\r", ConsoleFunctions.LogType.INFO);
+                if (ScreenCanvas == null)
+                {
+                    // Initialize the canvas
+                    ConsoleFunctions.PrintLogMSG($"Initializing the canvas ({ScreenWidth}x{ScreenHeight}@32)...\n\r", ConsoleFunctions.LogType.INFO);
 
-                // Choose the best driver for the current display hardware
-                ConsoleFunctions.PrintLogMSG($"Determining the best video driver...\n\r", ConsoleFunctions.LogType.INFO);
-                ScreenCanvas = Display.GetDisplay(ScreenWidth, ScreenHeight);
-                ConsoleFunctions.PrintLogMSG($"Using the \"{ScreenCanvas.GetName()}\" driver in {ScreenWidth}x{ScreenHeight}@32 mode.\n\r", ConsoleFunctions.LogType.INFO);
+                    // Choose the best driver for the current display hardware
+                    ConsoleFunctions.PrintLogMSG($"Determining the best video driver...\n\r", ConsoleFunctions.LogType.INFO);
+                    ScreenCanvas = Display.GetDisplay(ScreenWidth, ScreenHeight);
+                    ConsoleFunctions.PrintLogMSG($"Using the \"{ScreenCanvas.GetName()}\" driver in {ScreenWidth}x{ScreenHeight}@32 mode.\n\r", ConsoleFunctions.LogType.INFO);
 
-                // Create text buttons and set their properties
-                ConsoleFunctions.PrintLogMSG($"Creating text buttons...\n\r", ConsoleFunctions.LogType.INFO);
-                ExitButton.ButtonText = "Exit GUI";
-                ExitButton.ButtonPosition = new Point(24, (int)(ScreenHeight - 64));
-                ExitButton.ScreenCanvas = ScreenCanvas;
-                ExitButton.PressedAction = new Action(() => { DrawGUI = false; });
+                    // Create text buttons and set their properties
+                    ConsoleFunctions.PrintLogMSG($"Creating text buttons...\n\r", ConsoleFunctions.LogType.INFO);
+                    ExitButton.ButtonText = "Exit GUI";
+                    ExitButton.ButtonPosition = new Point(24, (int)(ScreenHeight - 64));
+                    ExitButton.ScreenCanvas = ScreenCanvas;
+                    ExitButton.PressedAction = new Action(() => { DrawGUI = false; });
 
-                ShutdownButton.ButtonText = "Shutdown";
-                ShutdownButton.ButtonPosition = new Point(24, (int)(ScreenHeight - 92));
-                ShutdownButton.ScreenCanvas = ScreenCanvas;
-                ShutdownButton.PressedAction = new Action(() => { Power.Shutdown(); });
+                    ShutdownButton.ButtonText = "Shutdown";
+                    ShutdownButton.ButtonPosition = new Point(24, (int)(ScreenHeight - 92));
+                    ShutdownButton.ScreenCanvas = ScreenCanvas;
+                    ShutdownButton.PressedAction = new Action(() => { Power.Shutdown(); });
 
-                RestartButton.ButtonText = "Restart";
-                RestartButton.ButtonPosition = new Point(24, (int)(ScreenHeight - 120));
-                RestartButton.ScreenCanvas = ScreenCanvas;
-                RestartButton.PressedAction = new Action(() => { Power.Reboot(); });
+                    RestartButton.ButtonText = "Restart";
+                    RestartButton.ButtonPosition = new Point(24, (int)(ScreenHeight - 120));
+                    RestartButton.ScreenCanvas = ScreenCanvas;
+                    RestartButton.PressedAction = new Action(() => { Power.Reboot(); });
 
-                NewWindowButton.ButtonText = "New Window";
-                NewWindowButton.ButtonPosition = new Point(24, (int)(ScreenHeight - 148));
-                NewWindowButton.ScreenCanvas = ScreenCanvas;
-                NewWindowButton.PressedAction = new Action(() => { 
-                    Window NewWindow = WindowManager.CreateNewWindow("Test Window", Color.LightGray, new Size(320, 200), new Point(64, 64));
-                    WindowElement NewStringElement = new WindowElement();
-                    WindowElement NewImageElement = new WindowElement();
+                    NewWindowButton.ButtonText = "New Window";
+                    NewWindowButton.ButtonPosition = new Point(24, (int)(ScreenHeight - 148));
+                    NewWindowButton.ScreenCanvas = ScreenCanvas;
+                    NewWindowButton.PressedAction = new Action(() => {
+                        Window NewWindow = WindowManager.CreateNewWindow("Test Window", Color.LightGray, new Size(320, 200), new Point(64, 64));
+                        WindowElement NewStringElement = new WindowElement();
+                        WindowElement NewImageElement = new WindowElement();
 
-                    NewStringElement.Type = WindowElement.ElementType.STRING;
-                    NewStringElement.ElementData = Encoding.ASCII.GetBytes($"This is test window #{WindowManager.WindowList.Count}.");
-                    NewStringElement.ElementPosition = new Point(5, 5);
+                        NewStringElement.Type = WindowElement.ElementType.STRING;
+                        NewStringElement.ElementData = Encoding.ASCII.GetBytes($"This is test window #{WindowManager.WindowList.Count}.");
+                        NewStringElement.ElementPosition = new Point(5, 5);
 
-                    NewImageElement.Type = WindowElement.ElementType.IMAGE;
-                    NewImageElement.ElementData = LogoArray;
-                    NewImageElement.ElementPosition = new Point(5, 25);
+                        NewImageElement.Type = WindowElement.ElementType.IMAGE;
+                        NewImageElement.ElementData = LogoArray;
+                        NewImageElement.ElementPosition = new Point(5, 25);
 
-                    NewWindow.WindowElements.Add(NewStringElement);
-                    NewWindow.WindowElements.Add(NewImageElement);
-                });
+                        NewWindow.WindowElements.Add(NewStringElement);
+                        NewWindow.WindowElements.Add(NewImageElement);
+                    });
 
-                // Create image buttons and set their properties
-                ConsoleFunctions.PrintLogMSG($"Creating image buttons...\n\r", ConsoleFunctions.LogType.INFO);
-                LogoButton.ButtonImage = Logo;
-                LogoButton.ButtonPosition = new Point(6, (ScreenHeight - Logo.Height - 4));
-                LogoButton.ScreenCanvas = ScreenCanvas;
-                LogoButton.BackColor = Color.LightGray;
-                LogoButton.BackColorPressed = Color.DeepGray;
-                LogoButton.HighlightedBackColor = Color.LightGray;
-                LogoButton.PressedAction = new Action(() => { DrawStartMenu = !DrawStartMenu; });
-                LogoButton.RequireMouseHeld = false;
+                    // Create image buttons and set their properties
+                    ConsoleFunctions.PrintLogMSG($"Creating image buttons...\n\r", ConsoleFunctions.LogType.INFO);
+                    LogoButton.ButtonImage = Logo;
+                    LogoButton.ButtonPosition = new Point(6, (ScreenHeight - Logo.Height - 4));
+                    LogoButton.ScreenCanvas = ScreenCanvas;
+                    LogoButton.BackColor = Color.LightGray;
+                    LogoButton.BackColorPressed = Color.DeepGray;
+                    LogoButton.HighlightedBackColor = Color.LightGray;
+                    LogoButton.PressedAction = new Action(() => { DrawStartMenu = !DrawStartMenu; });
+                    LogoButton.RequireMouseHeld = false;
 
-                // Initialize the mouse manager
-                ConsoleFunctions.PrintLogMSG("Initializing the mouse and setting its properties...\n\r", ConsoleFunctions.LogType.INFO);
-                MouseManager.MouseSensitivity = 1;
-                MouseManager.ScreenWidth = ScreenWidth;
-                MouseManager.ScreenHeight = ScreenHeight;
-                MouseManager.X = (uint)ScreenWidth / 2;
-                MouseManager.Y = (uint)ScreenHeight / 2;
+                    // Initialize the mouse manager
+                    ConsoleFunctions.PrintLogMSG("Initializing the mouse and setting its properties...\n\r", ConsoleFunctions.LogType.INFO);
+                    MouseManager.MouseSensitivity = 1;
+                    MouseManager.ScreenWidth = ScreenWidth;
+                    MouseManager.ScreenHeight = ScreenHeight;
+                    MouseManager.X = (uint)ScreenWidth / 2;
+                    MouseManager.Y = (uint)ScreenHeight / 2;
 
-                // Set the window manager's canvas
-                ConsoleFunctions.PrintLogMSG("Configuring the window manager...\n\r", ConsoleFunctions.LogType.INFO);
-                WindowManager.ScreenCanvas = ScreenCanvas;
+                    // Set the window manager's canvas
+                    ConsoleFunctions.PrintLogMSG("Configuring the window manager...\n\r", ConsoleFunctions.LogType.INFO);
+                    WindowManager.ScreenCanvas = ScreenCanvas;
+                }
 
                 // Infinite draw loop
                 ConsoleFunctions.PrintLogMSG($"Init done. Drawing...\n\r", ConsoleFunctions.LogType.INFO);
+
                 for(;;) 
                 {
                     if (DrawGUI == false)
