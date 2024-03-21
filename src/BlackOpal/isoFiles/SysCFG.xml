@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<SystemConfiguration>
+    <Username>RootUser</Username>
+    <DefaultCWD>0:\</DefaultCWD>
+    <AutostartGUI>False</AutostartGUI>
+    <AutoconfigNetwork>True</AutoconfigNetwork>
+</SystemConfiguration>

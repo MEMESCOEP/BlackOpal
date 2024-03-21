@@ -1,19 +1,20 @@
-﻿using Cosmos.System.Graphics.Fonts;
+﻿using System.Drawing;
+using System;
 using Cosmos.Core.Memory;
 using Cosmos.System;
 using Cosmos.Core;
+using Cosmos.HAL;
 using IL2CPU.API.Attribs;
-using System.Drawing;
-using System.Text;
-using System;
+using BlackOpal.Utilities.Calculations;
 using BlackOpal.GUI.Component;
 using GUI.Component;
 using IO.CMD;
 using PrismAPI.Hardware.GPU;
 using PrismAPI.Graphics;
-using Power = Cosmos.System.Power;
-using Kernel = BlackOpal.Kernel;
 using Color = PrismAPI.Graphics.Color;
+using Kernel = BlackOpal.Kernel;
+using Power = Cosmos.System.Power;
+using BlackOpal.GUI;
 
 namespace GUI
 {
@@ -32,12 +33,10 @@ namespace GUI
         [ManifestResourceStream(ResourceName = "BlackOpal.Assets.IMG.Logo.bmp")]
         static byte[] LogoArray;
 
-        private PCScreenFont Font = PCScreenFont.Default;
         private ImageButton LogoButton = new();
-        private TextButton NewWindowButton = new();
-        private TextButton ShutdownButton = new();
-        private TextButton RestartButton = new();
-        private TextButton ExitButton = new();
+        private TextButton DebugButton = new(new Point(36, ScreenHeight - 148));
+        private TextButton PowerButton = new(new Point(36, ScreenHeight - 120));
+        private TextButton ExitButton = new(new Point(24, ScreenHeight - 92));
         private Canvas MouseCursor = Image.FromBitmap(MouseCursorArray);
         private Canvas Wallpaper = Image.FromBitmap(WallpaperArray);
         private Canvas Taskbar = Image.FromBitmap(TaskbarArray);
@@ -45,15 +44,28 @@ namespace GUI
         private double UsedMemPerentage = 0;
         private string CurrentTime = string.Empty, CurrentDate = string.Empty;
         private bool DrawStartMenu = false, DrawGUI = true;
+        private int PreviousSecond = 0, PreviousHour = 0;
+        public static PrismAPI.Graphics.Fonts.Font BIOSFont = new PrismAPI.Graphics.Fonts.Font(Kernel.TTFFont, 16);
         public static Display ScreenCanvas;
         public static Point ClickPoint = new Point(0, 0);
         public static ushort ScreenWidth = 1024, ScreenHeight = 768;
+        public static int FrameCount = 0;
 
         /* FUNCTIONS */
         public void Init()
         {
             try
             {
+                // Make sure the GUI does not immediately exit if it is restarted
+                DrawGUI = true;
+
+                // Get the date and time
+                CurrentDate = DateTime.Now.ToShortDateString();
+                CurrentTime = DateTime.Now.ToLongTimeString();
+                PreviousSecond = RTC.Second;
+                PreviousHour = RTC.Hour;
+
+                // Only initialize if the canvas is null
                 if (ScreenCanvas == null)
                 {
                     // Initialize the canvas
@@ -61,50 +73,136 @@ namespace GUI
 
                     // Choose the best driver for the current display hardware
                     ConsoleFunctions.PrintLogMSG($"Determining the best video driver...\n\r", ConsoleFunctions.LogType.INFO);
-                    ScreenCanvas = Display.GetDisplay(ScreenWidth, ScreenHeight);
+                    ScreenCanvas = (Display)Kernel.Terminal.Contents;
                     ConsoleFunctions.PrintLogMSG($"Using the \"{ScreenCanvas.GetName()}\" driver in {ScreenWidth}x{ScreenHeight}@32 mode.\n\r", ConsoleFunctions.LogType.INFO);
 
                     // Create text buttons and set their properties
                     ConsoleFunctions.PrintLogMSG($"Creating text buttons...\n\r", ConsoleFunctions.LogType.INFO);
+                    
+                    // GUI exit button
                     ExitButton.ButtonText = "Exit GUI";
-                    ExitButton.ButtonPosition = new Point(24, (int)(ScreenHeight - 64));
                     ExitButton.ScreenCanvas = ScreenCanvas;
                     ExitButton.PressedAction = new Action(() => { DrawGUI = false; });
 
-                    ShutdownButton.ButtonText = "Shutdown";
-                    ShutdownButton.ButtonPosition = new Point(24, (int)(ScreenHeight - 92));
-                    ShutdownButton.ScreenCanvas = ScreenCanvas;
-                    ShutdownButton.PressedAction = new Action(() => { Power.Shutdown(); });
+                    // Power menu button
+                    PowerButton.ButtonText = "Power";
+                    PowerButton.ScreenCanvas = ScreenCanvas;
+                    PowerButton.PressedAction = new Action(() => {
+                        Window NewWindow = WindowManager.CreateNewWindow("Power Options", Color.LightGray, new Size(140, 75), new Point(64, 64));
+                        WindowElement CloseWindowButtonElement = new WindowElement();
+                        WindowElement ShutdownButtonElement = new WindowElement();
+                        WindowElement RestartButtonElement = new WindowElement();
+                        TextButton ShutdownTextButton = new TextButton(new Point(34, 10));
+                        TextButton RestartTextButton = new TextButton(new Point(38, 30));
+                        TextButton CloseTextButton = new TextButton(new Point(42, 50));
 
-                    RestartButton.ButtonText = "Restart";
-                    RestartButton.ButtonPosition = new Point(24, (int)(ScreenHeight - 120));
-                    RestartButton.ScreenCanvas = ScreenCanvas;
-                    RestartButton.PressedAction = new Action(() => { Power.Reboot(); });
+                        // Close window button
+                        CloseTextButton.PressedAction = new Action(() => {
+                            ScreenCanvas.Update();
+                            NewWindow.Close();
+                        });
+                        CloseTextButton.ButtonText = "Cancel";
+                        CloseTextButton.ButtonColor = Color.StackOverflowWhite;
+                        CloseTextButton.ButtonHighlightColor = Color.Green;
+                        CloseTextButton.ButtonPressedColor = Color.Red;
+                        CloseWindowButtonElement.Type = WindowElement.ElementType.TEXT_BUTTON;
+                        CloseWindowButtonElement.ElementData = CloseTextButton;
+                        CloseWindowButtonElement.ElementPosition = CloseTextButton.ButtonGlobalPosition;
 
-                    NewWindowButton.ButtonText = "New Window";
-                    NewWindowButton.ButtonPosition = new Point(24, (int)(ScreenHeight - 148));
-                    NewWindowButton.ScreenCanvas = ScreenCanvas;
-                    NewWindowButton.PressedAction = new Action(() => {
-                        Window NewWindow = WindowManager.CreateNewWindow("Test Window", Color.LightGray, new Size(320, 200), new Point(64, 64));
-                        WindowElement NewStringElement = new WindowElement();
-                        WindowElement NewImageElement = new WindowElement();
+                        // Shutdown button
+                        ShutdownTextButton.PressedAction = new Action(() => {
+                            ScreenCanvas.Update();
+                            Power.Shutdown();
+                        });
+                        ShutdownTextButton.ButtonText = "Shutdown";
+                        ShutdownTextButton.ButtonColor = Color.StackOverflowWhite;
+                        ShutdownTextButton.ButtonHighlightColor = Color.RubyRed;
+                        ShutdownTextButton.ButtonPressedColor = Color.Red;
+                        ShutdownButtonElement.Type = WindowElement.ElementType.TEXT_BUTTON;
+                        ShutdownButtonElement.ElementData = ShutdownTextButton;
+                        ShutdownButtonElement.ElementPosition = ShutdownTextButton.ButtonGlobalPosition;
 
-                        NewStringElement.Type = WindowElement.ElementType.STRING;
-                        NewStringElement.ElementData = Encoding.ASCII.GetBytes($"This is test window #{WindowManager.WindowList.Count}.");
-                        NewStringElement.ElementPosition = new Point(5, 5);
+                        // Restart button
+                        RestartTextButton.PressedAction = new Action(() => {
+                            ScreenCanvas.Update();
+                            Power.Reboot();
+                        });
+                        RestartTextButton.ButtonText = "Restart";
+                        RestartTextButton.ButtonColor = Color.StackOverflowWhite;
+                        RestartTextButton.ButtonHighlightColor = Color.Yellow;
+                        RestartTextButton.ButtonPressedColor = Color.Red;
+                        RestartButtonElement.Type = WindowElement.ElementType.TEXT_BUTTON;
+                        RestartButtonElement.ElementData = RestartTextButton;
+                        RestartButtonElement.ElementPosition = RestartTextButton.ButtonGlobalPosition;
 
-                        NewImageElement.Type = WindowElement.ElementType.IMAGE;
-                        NewImageElement.ElementData = LogoArray;
-                        NewImageElement.ElementPosition = new Point(5, 25);
+                        NewWindow.WindowElements.Add(CloseWindowButtonElement);
+                        NewWindow.WindowElements.Add(ShutdownButtonElement);
+                        NewWindow.WindowElements.Add(RestartButtonElement);
+                    });
 
-                        NewWindow.WindowElements.Add(NewStringElement);
-                        NewWindow.WindowElements.Add(NewImageElement);
+                    // Sysinfo button
+                    DebugButton.ButtonText = "Debug";
+                    DebugButton.ScreenCanvas = ScreenCanvas;
+                    DebugButton.PressedAction = new Action(() => {
+                        Window NewWindow = WindowManager.CreateNewWindow("Debug Information", Color.LightGray, new Size(240, 90), new Point(256, 256));
+                        WindowElement MousePositionElement = new WindowElement();
+                        WindowElement MemoryUsageElement = new WindowElement();
+                        WindowElement KernelNameElement = new WindowElement();
+                        WindowElement UptimeElement = new WindowElement();
+                        WindowElement DriverElement = new WindowElement();
+                        WindowElement FPSElement = new WindowElement();
+
+                        // Add useful information
+                        KernelNameElement.Type = WindowElement.ElementType.STRING;
+                        KernelNameElement.ElementData = $"{Kernel.OSName} {Kernel.OSVersion} - {Kernel.OSDate}";
+                        KernelNameElement.ElementPosition = new Point(5, 5);
+
+                        MousePositionElement.Type = WindowElement.ElementType.STRING;
+                        MousePositionElement.ElementData = $"MOUSE POS: {MouseManager.X}, {MouseManager.Y}";
+                        MousePositionElement.ElementPosition = new Point(5, 17);
+
+                        UptimeElement.Type = WindowElement.ElementType.STRING;
+                        UptimeElement.ElementData = $"UPTIME: {DateTime.Now - Kernel.KernelStartTime}";
+                        UptimeElement.ElementPosition = new Point(5, 29);
+
+                        DriverElement.Type = WindowElement.ElementType.STRING;
+                        DriverElement.ElementData = $"DRIVER: {ScreenCanvas.GetName()}";
+                        DriverElement.ElementPosition = new Point(5, 41);
+
+                        MemoryUsageElement.Type = WindowElement.ElementType.STRING;
+                        MemoryUsageElement.ElementData = $"MEM: {Kernel.UsedRAM}/{Kernel.TotalInstalledRAM} KB ({UsedMemPerentage}%)";
+                        MemoryUsageElement.ElementPosition = new Point(5, 53);
+
+                        FPSElement.Type = WindowElement.ElementType.STRING;
+                        FPSElement.ElementData = $"FPS: {ScreenCanvas.GetFPS()} ({FrameCount})";
+                        FPSElement.ElementPosition = new Point(5, 65);
+
+                        NewWindow.WindowElements.Add(MousePositionElement);
+                        NewWindow.WindowElements.Add(MemoryUsageElement);
+                        NewWindow.WindowElements.Add(KernelNameElement);
+                        NewWindow.WindowElements.Add(UptimeElement);
+                        NewWindow.WindowElements.Add(DriverElement);
+                        NewWindow.WindowElements.Add(FPSElement);
+
+                        NewWindow.UpdateAction = new Action(() => { 
+                            if (FrameCount % 60 == 0)
+                            {
+                                MemoryUsageElement.ElementData = $"MEM: {Kernel.UsedRAM}/{Kernel.TotalInstalledRAM} KB ({UsedMemPerentage}%)";
+                                UptimeElement.ElementData = $"UPTIME: {DateTime.Now - Kernel.KernelStartTime}";
+                                FPSElement.ElementData = $"FPS: {ScreenCanvas.GetFPS()} ({FrameCount})";
+                            }
+
+                            if (FrameCount % 10 == 0)
+                            {
+                                MousePositionElement.ElementData = $"MOUSE POS: {MouseManager.X}, {MouseManager.Y}";
+                            }
+                        });
                     });
 
                     // Create image buttons and set their properties
                     ConsoleFunctions.PrintLogMSG($"Creating image buttons...\n\r", ConsoleFunctions.LogType.INFO);
                     LogoButton.ButtonImage = Logo;
-                    LogoButton.ButtonPosition = new Point(6, (ScreenHeight - Logo.Height - 4));
+                    LogoButton.ButtonPosition = new Point(6, ScreenHeight - Logo.Height - 4);
                     LogoButton.ScreenCanvas = ScreenCanvas;
                     LogoButton.BackColor = Color.LightGray;
                     LogoButton.BackColorPressed = Color.DeepGray;
@@ -126,23 +224,19 @@ namespace GUI
                 }
 
                 // Infinite draw loop
-                ConsoleFunctions.PrintLogMSG($"Init done. Drawing...\n\r", ConsoleFunctions.LogType.INFO);
+                ConsoleFunctions.PrintLogMSG($"Init done.\n\r", ConsoleFunctions.LogType.INFO);
+                BlackOpal.GUI.Messagebox.ShowMessage("Welcome!", "Welcome to the BlackOpal GUI!\nThis is still a work in progress, so you should expect bugs.\n- memescoep", BlackOpal.GUI.Messagebox.MessageType.INFO);
 
-                for(;;) 
+                for (;;) 
                 {
                     if (DrawGUI == false)
                         break;
 
+                    // Call the garbage collector every 4 frames
+                    Heap.Collect();
+
                     try
                     {
-                        // Get the used RAM
-                        Kernel.UsedRAM = GCImplementation.GetUsedRAM() / 1024;
-                        UsedMemPerentage = BlackOpal.Calculations.MathHelpers.TruncateToDecimalPlace((Kernel.UsedRAM / Kernel.TotalInstalledRAM) * 100f, 4);
-
-                        // Get the current date and time
-                        CurrentTime = DateTime.Now.ToLongTimeString();
-                        CurrentDate = DateTime.Now.ToShortDateString();
-
                         // Get the point where the mouse was clicked
                         if (MouseManager.LastMouseState != MouseState.Left && MouseManager.MouseState == MouseState.Left)
                         {
@@ -157,57 +251,81 @@ namespace GUI
                         WindowManager.DrawWindows();
 
                         // Draw the taskbar
-                        ScreenCanvas.DrawImage(0, (ScreenHeight - Taskbar.Height), Taskbar, false);
+                        ScreenCanvas.DrawImage(0, ScreenHeight - Taskbar.Height, Taskbar, false);
                         LogoButton.Draw();
 
-                        // Draw date and time
-                        ScreenCanvas.DrawString((ScreenWidth - CurrentTime.Length * 8) - 4, (ScreenHeight - 32), CurrentTime, default, Color.White);
-                        ScreenCanvas.DrawString((ScreenWidth - CurrentDate.Length * 8) - 4, (ScreenHeight - 18), CurrentDate, default, Color.White);
+                        // Draw the date and time
+                        ScreenCanvas.DrawString((ScreenWidth - CurrentTime.Length * 8) - 4, ScreenHeight - 32, CurrentTime, BIOSFont, Color.White);
+                        ScreenCanvas.DrawString((ScreenWidth - CurrentDate.Length * 8) - 4, ScreenHeight - 18, CurrentDate, BIOSFont, Color.White);
 
                         // Draw the start menu if required
                         if (DrawStartMenu)
                         {
-                            ScreenCanvas.DrawFilledRectangle(0, (ScreenHeight - 288), 128, 256, 0, Color.LighterBlack);
-                            ScreenCanvas.DrawRectangle(0, (ScreenHeight - 288), 128, 256, 0, Color.Black);
+                            var StartMenuY = ScreenHeight - 288;
 
-                            NewWindowButton.Draw();
-                            ShutdownButton.Draw();
-                            RestartButton.Draw();
+                            ScreenCanvas.DrawFilledRectangle(0, StartMenuY, 128, 256, 0, Color.LighterBlack);
+                            ScreenCanvas.DrawRectangle(0, StartMenuY, 128, 256, 0, Color.Black);
+                            DebugButton.Draw();
+                            PowerButton.Draw();
                             ExitButton.Draw();
                         }
-
-                        // Draw the uptime and memory usage
-                        ScreenCanvas.DrawString(0, 0, $"{Kernel.OSName} {Kernel.OSVersion} - {Kernel.OSDate}", default, Color.Black);
-                        ScreenCanvas.DrawString(0, 12, $"MOUSE POS: X={MouseManager.X}, Y={MouseManager.Y}", default, Color.Black);
-                        ScreenCanvas.DrawString(0, 24, $"UPTIME: {DateTime.Now - Kernel.KernelStartTime}", default, Color.Black);
-                        ScreenCanvas.DrawString(0, 36, $"DRIVER: {ScreenCanvas.GetName()}", default, Color.Black);
-                        ScreenCanvas.DrawString(0, 48, $"MEM: {Kernel.UsedRAM}/{Kernel.TotalInstalledRAM} KB ({UsedMemPerentage}%)", default, Color.Black);
-                        ScreenCanvas.DrawString(0, 64, $"FPS: {ScreenCanvas.GetFPS()}", default, Color.Black);
 
                         // Draw the mouse pointer bitmap at the mouse position
                         ScreenCanvas.DrawImage((int)MouseManager.X, (int)MouseManager.Y, MouseCursor);
 
-                        // Copy the back frame buffer to the visible frame buffer
+                        // Copy the back (invisible) frame buffer to the front (visible) frame buffer
                         ScreenCanvas.Update();
 
-                        // Exit the GUI if the user presses escape
+                        // Handle keyboard events
                         if (System.Console.KeyAvailable)
                         {
                             switch (System.Console.ReadKey().Key)
                             {
+                                // Exit the GUI if the user presses escape
                                 case ConsoleKey.Escape:
                                     DrawGUI = false;
                                     break;
 
+                                // Toggle the start menu if the user presses either Windows key
                                 case ConsoleKey.LeftWindows:
                                 case ConsoleKey.RightWindows:
                                     DrawStartMenu = !DrawStartMenu;
                                     break;
+
+                                // Create a new 3D renderer window when the user presses the F11 key
+                                case ConsoleKey.F11:
+                                    _3D.CreateNewRenderer();
+                                    break;
+
+                                // Open the debug menu when the user presses the F12 key
+                                case ConsoleKey.F12:
+                                    DebugButton.PressedAction.Invoke();
+                                    break;
                             }
                         }
 
-                        // Call the garbage collector
-                        Heap.Collect();
+                        var RTCSecond = RTC.Second;
+                        var RTCHour = RTC.Hour;
+
+                        if (RTCSecond != PreviousSecond)
+                        {
+                            // Get the current date and time
+                            PreviousSecond = RTCSecond;
+                            PreviousHour = RTCHour;
+                            CurrentTime = DateTime.Now.ToLongTimeString();
+
+                            if (RTCHour != PreviousHour)
+                            {
+                                CurrentDate = DateTime.Now.ToShortDateString();
+                            }
+
+                            // Get the used RAM
+                            Kernel.UsedRAM = GCImplementation.GetUsedRAM() / 1024;
+                            UsedMemPerentage = MathHelpers.TruncateToDecimalPlace((Kernel.UsedRAM / Kernel.TotalInstalledRAM) * 100f, 4);
+                        }
+
+                        // Imcrement the frame counter after every successful draw loop
+                        FrameCount++;
                     }
                     catch(Exception ex)
                     {
@@ -218,13 +336,12 @@ namespace GUI
                 // Cleanup
                 ConsoleFunctions.PrintLogMSG("Disabling the GUI...\n\r", ConsoleFunctions.LogType.INFO);
                 Kernel.Terminal.Clear();
+                Heap.Collect();
             }
             catch (Exception ex)
             {
-                if (ScreenCanvas != null && ScreenCanvas.IsEnabled)
-                    ScreenCanvas.IsEnabled = false;
-
-                ConsoleFunctions.PrintLogMSG($"{ex.Message}\n\r", ConsoleFunctions.LogType.ERROR);
+                Kernel.Terminal.Clear();
+                ConsoleFunctions.PrintLogMSG($"{ex.Message}\n\n\r", ConsoleFunctions.LogType.ERROR);
                 DrawGUI = false;
             }
         }

@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 
 namespace BlackOpal.IO.Filesystem
@@ -22,13 +21,13 @@ namespace BlackOpal.IO.Filesystem
                 ArgPath += PathPart + " ";
             }
 
-            return ArgPath;
+            return ArgPath.TrimEnd();
         }
 
         // Returns a valid path from an (possibly invalid) input string
         public static string GetValidPath(string InputPath)
         {
-            bool AppendQuotes = true;
+            //bool AppendQuotes = true;
             var CurrentDirectory = Directory.GetCurrentDirectory();
             var ValidPath = "";
 
@@ -46,7 +45,7 @@ namespace BlackOpal.IO.Filesystem
                 int PFrom = ValidPath.IndexOf("\"") + 1;
                 int PTo = ValidPath.LastIndexOf("\"");
                 ValidPath = ValidPath.Substring(PFrom, PTo - PFrom).TrimEnd();
-                AppendQuotes = false;
+                //AppendQuotes = false;
             }
             else
             {
@@ -81,6 +80,12 @@ namespace BlackOpal.IO.Filesystem
             }
 
             ValidPath = Path.GetFullPath(ValidPath).Replace(@"\\", @"\");
+
+            // Get current directory when the path contains ".\"
+            if (InputPath.Contains(@".\"))
+            {
+                ValidPath = Path.GetDirectoryName(ValidPath.Replace(@".\", ""));
+            }
 
             /*if (AppendQuotes)
             {

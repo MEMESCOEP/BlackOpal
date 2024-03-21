@@ -24,25 +24,39 @@
         <CompileVBEMultiboot>True</CompileVBEMultiboot>
         <AllowComments>False</AllowComments>
         <VBEResolution>1024x768x32</VBEResolution>
+        <RemoveBootDebugOutput>True</RemoveBootDebugOutput>
+        <UseUEFI>True</UseUEFI>
     </PropertyGroup>
 
     <ItemGroup>
       <None Remove="Assets\Fonts\Terminal.btf" />
       <None Remove="Assets\Fonts\Terminus.ttf" />
+      <None Remove="Assets\IMG\ErrorIcon.bmp" />
+      <None Remove="Assets\IMG\ErrorIcon.png" />
+      <None Remove="Assets\IMG\InfoIcon.bmp" />
+      <None Remove="Assets\IMG\InfoIcon.png" />
       <None Remove="Assets\IMG\Logo.bmp" />
       <None Remove="Assets\IMG\Mouse.bmp" />
+      <None Remove="Assets\IMG\QuestionIcon.bmp" />
+      <None Remove="Assets\IMG\QuestionIcon.png" />
       <None Remove="Assets\IMG\Taskbar.bmp" />
       <None Remove="Assets\IMG\Wallpaper.bmp" />
+      <None Remove="Assets\IMG\WarningIcon.bmp" />
+      <None Remove="Assets\IMG\WarningIcon.png" />
     </ItemGroup>
 
     <ItemGroup>
       <EmbeddedResource Include="Assets\Fonts\Terminal.btf">
-        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        <CopyToOutputDirectory>Never</CopyToOutputDirectory>
       </EmbeddedResource>
+      <EmbeddedResource Include="Assets\IMG\ErrorIcon.bmp" />
+      <EmbeddedResource Include="Assets\IMG\InfoIcon.bmp" />
       <EmbeddedResource Include="Assets\IMG\Logo.bmp" />
       <EmbeddedResource Include="Assets\IMG\Mouse.bmp" />
+      <EmbeddedResource Include="Assets\IMG\QuestionIcon.bmp" />
       <EmbeddedResource Include="Assets\IMG\Taskbar.bmp" />
       <EmbeddedResource Include="Assets\IMG\Wallpaper.bmp" />
+      <EmbeddedResource Include="Assets\IMG\WarningIcon.bmp" />
     </ItemGroup>
 
     <ItemGroup>
@@ -61,6 +75,11 @@
       <Reference Include="SVGAIITerminal">
         <HintPath>Libraries\SVGAIITerminal.dll</HintPath>
       </Reference>
+    </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="Utilities\Helpers\" />
+      <Folder Include="Utilities\Parsers\" />
     </ItemGroup>
 
 </Project>

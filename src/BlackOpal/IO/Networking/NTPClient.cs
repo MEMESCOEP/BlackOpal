@@ -1,6 +1,6 @@
-﻿using Cosmos.System.Network.IPv4;
+﻿using Cosmos.System.Network.IPv4.UDP.DNS;
 using Cosmos.System.Network.IPv4.UDP;
-using Cosmos.System.Network.IPv4.UDP.DNS;
+using Cosmos.System.Network.IPv4;
 using System;
 using IO.CMD;
 

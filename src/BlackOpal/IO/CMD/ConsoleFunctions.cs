@@ -41,6 +41,9 @@ namespace IO.CMD
                     break;
 
                 case LogType.DEBUG:
+                    if (Kernel.DEBUG == false)
+                        break;
+
                     if (Kernel.Terminal != null)
                     {
                         Kernel.Terminal.Write("[");

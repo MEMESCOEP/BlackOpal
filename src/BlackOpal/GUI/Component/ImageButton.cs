@@ -1,8 +1,7 @@
 ﻿using Cosmos.System;
-using System.Threading;
 using System.Drawing;
 using System;
-using BlackOpal.Calculations;
+using BlackOpal.Utilities.Calculations;
 using PrismAPI.Graphics;
 using Color = PrismAPI.Graphics.Color;
 

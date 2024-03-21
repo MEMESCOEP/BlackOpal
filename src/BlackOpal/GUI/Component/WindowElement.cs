@@ -1,5 +1,4 @@
 ﻿using System.Drawing;
-using PrismAPI.Graphics;
 using Color = PrismAPI.Graphics.Color;
 
 namespace BlackOpal.GUI.Component
@@ -8,6 +7,8 @@ namespace BlackOpal.GUI.Component
     {
         public enum ElementType
         {
+            IMAGE_BUTTON,
+            TEXT_BUTTON,
             CONTROL,
             STRING,
             IMAGE,
@@ -18,6 +19,6 @@ namespace BlackOpal.GUI.Component
         public Color ElementColor = Color.Black;
         public Point ElementPosition = new Point(0, 0);
         public ElementType Type = ElementType.OTHER;
-        public byte[] ElementData = new byte[1];
+        public object ElementData;
     }
 }

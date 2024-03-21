@@ -1,20 +1,18 @@
 ﻿using Cosmos.System;
 using System.Collections.Generic;
 using System.Drawing;
-using System.Text;
 using BlackOpal.GUI.Component;
 using GUI.Component;
 using PrismAPI.Hardware.GPU;
 using PrismAPI.Graphics;
 using Color = PrismAPI.Graphics.Color;
-using Cosmos.Core;
 
 namespace GUI
 {
     internal class WindowManager
     {
-        public static List<Window> WindowList = new List<Window>();
         public static Display ScreenCanvas;
+        public static List<Window> WindowList = new List<Window>();
         public static bool FocusingWindow = false;
         private static Color TitlebarColor = new Color(139, 0, 139);
 
@@ -39,8 +37,50 @@ namespace GUI
 
             foreach (var window in WindowList)
             {
-                ScreenCanvas.DrawFilledRectangle(window.Position.X, window.Position.Y + 24, (ushort)window.Size.Width, (ushort)window.Size.Height, 0, window.WindowBGColor);
-                
+                // Draw he background color
+                window.Framebuffer.DrawFilledRectangle(0, 0, (ushort)window.Size.Width, (ushort)window.Size.Height, 0, window.WindowBGColor);
+
+                // Window elements
+                foreach (var Element in window.WindowElements)
+                {
+                    if (Element.Type == WindowElement.ElementType.STRING)
+                    {
+                        window.Framebuffer.DrawString(Element.ElementPosition.X, Element.ElementPosition.Y, (string)Element.ElementData, UserInterface.BIOSFont, Element.ElementColor);
+                    }
+
+                    else if (Element.Type == WindowElement.ElementType.IMAGE)
+                    {
+                        window.Framebuffer.DrawImage(Element.ElementPosition.X, Element.ElementPosition.Y, (Canvas)Element.ElementData);
+                    }
+
+                    else if (Element.Type == WindowElement.ElementType.TEXT_BUTTON)
+                    {
+                        var TextElement = (TextButton)Element.ElementData;
+                        TextElement.DrawFromLocalPosition = true;
+                        TextElement.UpdateScreenOnAction = false;
+                        TextElement.CalculateBounds = false;
+                        TextElement.ScreenCanvas = (Display)window.Framebuffer;
+                        TextElement.ButtonGlobalPosition.X = window.Position.X + TextElement.ButtonLocalPosition.X;
+                        TextElement.ButtonGlobalPosition.Y = window.Position.Y + 24 + TextElement.ButtonLocalPosition.Y;
+                        TextElement.ButtonBottomRight.X = TextElement.ButtonGlobalPosition.X + TextElement.ButtonPixelLength;
+                        TextElement.ButtonBottomRight.Y = TextElement.ButtonGlobalPosition.Y + 17;
+                        TextElement.Draw();
+
+                        //BlackOpal.Kernel.Terminal.SetCursorPosition(0, 0);
+                        //BlackOpal.Kernel.Terminal.WriteLine($"{TextElement.ButtonGlobalPosition.X}, {TextElement.ButtonGlobalPosition.Y}, {TextElement.ButtonBottomRight.X}, {TextElement.ButtonBottomRight.Y}");
+                        //ScreenCanvas.DrawFilledRectangle(TextElement.ButtonGlobalPosition.X, TextElement.ButtonGlobalPosition.Y, (ushort)(Math.Abs(TextElement.ButtonGlobalPosition.X - TextElement.ButtonBottomRight.X)), 17, 0, Color.Yellow);
+                    }
+
+                    else if (Element.Type == WindowElement.ElementType.IMAGE_BUTTON)
+                    {
+                        ((ImageButton)Element.ElementData).ScreenCanvas = (Display)window.Framebuffer;
+                        ((ImageButton)Element.ElementData).Draw();
+                    }
+                }
+
+                ScreenCanvas.DrawImage(window.Position.X, window.Position.Y + 24, window.Framebuffer, false);
+
+                // Draw the titlebar if required
                 if (window.DrawTitleBar)
                 {
                     if (WindowList.IndexOf(window) == WindowList.Count - 1)
@@ -48,13 +88,11 @@ namespace GUI
                         if (TitlebarColor.ARGB != window.UnfocusedTitlebarColor.ARGB)
                         {
                             TitlebarColor = window.UnfocusedTitlebarColor;
-                            //window.Title = TitlebarColor.ARGB.ToString("X") + "||" + ScreenCanvas.GetFPS().ToString();
                         }
                     }
                     else if (TitlebarColor.ARGB != window.FocusedTitlebarColor.ARGB)
                     {
                         TitlebarColor = window.FocusedTitlebarColor;
-                        //window.Title = TitlebarColor.ARGB.ToString("X") + "||" + ScreenCanvas.GetFPS().ToString();
                     }
 
                     ScreenCanvas.DrawFilledRectangle(window.Position.X, window.Position.Y, (ushort)window.Size.Width, 24, 0, TitlebarColor);
@@ -70,34 +108,21 @@ namespace GUI
                 ScreenCanvas.DrawFilledRectangle(window.Position.X + window.Size.Width, window.Position.Y + 4, 4, (ushort)(window.Size.Height + 24), 0, Color.Black);
 
                 // Close button
-                window.WindowCloseButton.ButtonPosition.X = (window.Position.X + window.Size.Width) - 22;
-                window.WindowCloseButton.ButtonPosition.Y = window.Position.Y + 4;
+                window.WindowCloseButton.ButtonLocalPosition.X = (window.Position.X + window.Size.Width) - 26;
+                window.WindowCloseButton.ButtonLocalPosition.Y = window.Position.Y + 4;
+                window.WindowCloseButton.ButtonGlobalPosition.X = window.WindowCloseButton.ButtonLocalPosition.X;
+                window.WindowCloseButton.ButtonGlobalPosition.Y = window.WindowCloseButton.ButtonLocalPosition.Y;
                 window.WindowCloseButton.Draw();
 
                 // Window title
-                ScreenCanvas.DrawString(window.Position.X + 4, window.Position.Y + 4, window.Title, default, Color.Black);
+                ScreenCanvas.DrawString(window.Position.X + 6, window.Position.Y + 4, window.Title, UserInterface.BIOSFont, Color.StackOverflowWhite);
 
-                // Window elements
-                foreach (var Element in window.WindowElements)
-                {
-                    if (Element.Type == WindowElement.ElementType.STRING)
-                    {
-                        ScreenCanvas.DrawString(window.Position.X + Element.ElementPosition.X, window.Position.Y + 24 + Element.ElementPosition.Y, Encoding.ASCII.GetString(Element.ElementData), default, Element.ElementColor);
-                    }
-
-                    // This is causing memory leaks; I believe it's due to the Image.FromBitmap function
-                    if (Element.Type == WindowElement.ElementType.IMAGE)
-                    {
-                        var ImageData = Image.FromBitmap(Element.ElementData);
-                        ScreenCanvas.DrawImage(window.Position.X + Element.ElementPosition.X, window.Position.Y + 24 + Element.ElementPosition.Y, ImageData);
-                        GCImplementation.Free(ImageData);
-                        //ScreenCanvas.DrawImage(window.Position.X + Element.ElementPosition.X, window.Position.Y + 24 + Element.ElementPosition.Y, Image.FromBitmap(Element.ElementData));
-                    }
-                }
-
-                window.CheckControls();
+                //window.CheckControls();
                 window.CheckDrag();
                 window.CheckFocus();
+
+                // Call the update action
+                window.UpdateAction.Invoke();
             }
 
             /*for (var i = WindowList.Count - 1; i >= 0; i--)

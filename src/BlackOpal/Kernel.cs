@@ -1,8 +1,8 @@
 ﻿/* [===== MAIN KERNEL CLASS =====] */
-// Note: This kernel currently requires 103 MB of RAM to boot when using GZIP compression, but can run on as little 3.81MB (VMSVGA) / 12.62MB (VGA) / 512k (CMD) AFTER booting.
+// Note: This kernel currently requires 103 MB of RAM to boot when using GZIP compression, but can run on as little 3.99MB (VMSVGA) / 7.108MB (VBE) AFTER booting.
 // If GZIP isn't being used, 100 MB is the minimum required to boot.
 // I believe this is because the entire kernel is getting decompressed into RAM, but this might not be the case.
-// After booting, the OS uses around 300-350K in console mode, and about 3.81MB (VMSVGA) / 12.62MB (VGA) in GUI mode.
+// After booting, the OS uses around 7MB in console mode, and about 3.99MB (VMSVGA) / 10.04MB (VBE) in GUI mode.
 // Using GZIP compresses the ISO image, at the expense of higher memory requirements
 
 /* DIRECTIVES */
@@ -20,12 +20,20 @@ using System;
 using IO.Networking;
 using IO.CMD;
 using GUI;
+using BlackOpal.Utilities.Calculations.Checksum;
+using BlackOpal.Utilities.Calculations;
+using BlackOpal.Utilities.KernelUtils;
+using BlackOpal.Utilities.Converters;
+using BlackOpal.Utilities.Viewers;
+using BlackOpal.IO.Networking;
 using BlackOpal.IO.Filesystem;
-using BlackOpal.Calculations;
 using SVGAIITerminal.TextKit;
 using PrismAPI.Graphics;
 using HydrixLIB;
 using Sys = Cosmos.System;
+using BlackOpal.Utilities.Interpreters;
+using BlackOpal.Utilities.Parsers;
+using BlackOpal.Utilities.Installers;
 
 /* NAMESPACES */
 namespace BlackOpal
@@ -33,33 +41,44 @@ namespace BlackOpal
     /* CLASSES */
     public class Kernel : Sys.Kernel
     {
-        /* WARNING SUPRESSION */
-        #pragma warning disable CA1416 // Validate platform compatibility
-
         /* VARIABLES */
         [ManifestResourceStream(ResourceName = "BlackOpal.Assets.Fonts.Terminal.btf")]
-        static byte[] TTFFont;
+        public static byte[] TTFFont;
 
-        public const string OSContributors = "Scarlet & Azure";
         public const string OSVersion = "0.0.3";
         public const string OSAuthor = "memescoep";
         public const string OSName = "Black Opal";
-        public const string OSDate = "2-26-2024";
+        public const string OSDate = "3-3-2024";
+        public const bool DEBUG = false;
+
         public static SVGAIITerminal.SVGAIITerminal Terminal = new SVGAIITerminal.SVGAIITerminal(UserInterface.ScreenWidth, UserInterface.ScreenHeight, new BtfFontFace(TTFFont, 16));
         public static TextScreenBase TextScreen;
-        public static UserInterface UI = new UserInterface();
+        public static UserInterface UI;
         public static HTerminal HTerminal = new HTerminal(Terminal);
         public static DateTime KernelStartTime;
         public static Color TerminalColor = Color.Green;
+        public static string InstallationMarker = "INSMkr.IMR";
         public static string HydrixLibVersion = HTerminal.GetHydrixLibVersion();
+        public static string TerminalDriver = "None";
+        public static string BootMediumPath = "None";
+        public static string SysConfigFile = "SysCFG.xml";
         public static float TotalInstalledRAM = 0f;
         public static float UsedRAM = 0f;
+        public static bool FSExists = false;
+        public static int BootMediumIndex = -1;
         public string CMDPrompt = ">>";
         public string Username = "root";
         public string Hostname = "BlackOpal";
-        public Sys.FileSystem.CosmosVFS FS; 
+        public static Sys.FileSystem.CosmosVFS FS;
+        private bool AutostartGUI = false;
 
         /* FUNCTIONS */
+        // Initialize everything except the VGA console
+        protected override void OnBoot()
+        {
+            Sys.Global.Init(null, true, true, true, true);
+        }
+
         // Perform initialization and configuration
         protected override void BeforeRun()
         {
@@ -71,12 +90,21 @@ namespace BlackOpal
                 // Initialize the terminal
                 ConsoleFunctions.PrintLogMSG("Configuring terminal...\n\r", ConsoleFunctions.LogType.INFO);
                 Terminal.CursorShape = SVGAIITerminal.CursorShape.Block;
-                Terminal.ForegroundColor = TerminalColor;
+                TerminalDriver = ((PrismAPI.Hardware.GPU.Display)Terminal.Contents).GetName();
                 Terminal.SetCursorPosition(0, 0);
+                ConsoleFunctions.PrintLogMSG($"Using the \"{TerminalDriver}\" driver.\n\r", ConsoleFunctions.LogType.INFO);
+                Terminal.ForegroundColor = TerminalColor;
+                Terminal.BackgroundColor = Color.Black;
                 Terminal.Clear();
 
-                // Print a boot message
-                ConsoleFunctions.PrintLogMSG($"Kernel started at {KernelStartTime.ToString()}\n\r", ConsoleFunctions.LogType.INFO);
+                // Print boot message(s)
+                ConsoleFunctions.PrintLogMSG($"{OSName} kernel started at {KernelStartTime.ToString()}\n\r", ConsoleFunctions.LogType.INFO);
+                ConsoleFunctions.PrintLogMSG($"Stack start address: 0x{CPU.GetStackStart()}\n\r", ConsoleFunctions.LogType.DEBUG);
+                ConsoleFunctions.PrintLogMSG($"Kernel end address: 0x{CPU.GetEndOfKernel()}\n\r", ConsoleFunctions.LogType.DEBUG);
+                ConsoleFunctions.PrintLogMSG($"EBP register: 0x{CPU.GetEBPValue()}\n\r", ConsoleFunctions.LogType.DEBUG);
+                ConsoleFunctions.PrintLogMSG($"MBI address: 0x{Cosmos.Core.Multiboot.Multiboot2.GetMBIAddress()}\n\r", ConsoleFunctions.LogType.DEBUG);
+                ConsoleFunctions.PrintLogMSG($"VBE available: {Cosmos.Core.Multiboot.Multiboot2.IsVBEAvailable}\n\r", ConsoleFunctions.LogType.DEBUG);
+                ConsoleFunctions.PrintLogMSG($"PS/2 status I/O port: 0x{Cosmos.Core.IOGroup.PS2Controller.Status}\n\r", ConsoleFunctions.LogType.DEBUG);
                 ConsoleFunctions.PrintLogMSG($"HydrixLIB Version: {HydrixLibVersion}\n\r", ConsoleFunctions.LogType.INFO);
 
                 // Commented out because it causes crashes (I probably fucked it up lmao)
@@ -92,7 +120,7 @@ namespace BlackOpal
                 ACPI.Start();
 
                 // Set the keyboard layout (this may help with some keyboards acting funky)
-                ConsoleFunctions.PrintLogMSG($"Setting keyboard layout...\n\r", ConsoleFunctions.LogType.INFO);
+                ConsoleFunctions.PrintLogMSG($"Setting keyboard layout (US-Standard)...\n\r", ConsoleFunctions.LogType.INFO);
                 Sys.KeyboardManager.SetKeyLayout(new Sys.ScanMaps.USStandardLayout());
 
                 // Get the total amount of installed RAM in the computer
@@ -116,15 +144,16 @@ namespace BlackOpal
                             {
                                 if (Disk.Partitions[0].HasFileSystem && String.IsNullOrEmpty(Disk.Partitions[0].RootPath) == false)
                                 {
+                                    FSExists = true;
                                     Directory.SetCurrentDirectory(Disk.Partitions[0].RootPath);
-                                    ConsoleFunctions.PrintLogMSG($"Working directory is: \"{Disk.Partitions[0].RootPath}\"\n\r", ConsoleFunctions.LogType.INFO);
+                                    ConsoleFunctions.PrintLogMSG($"Working directory is: \"{Disk.Partitions[0].RootPath}\"\n\r", ConsoleFunctions.LogType.DEBUG);
                                     break;
                                 }
                             }
 
                             else
                             {
-                                ConsoleFunctions.PrintLogMSG("The main disk doesn't have a root path.\n\r", ConsoleFunctions.LogType.WARNING);
+                                ConsoleFunctions.PrintLogMSG("The disk doesn't have a root path.\n\r", ConsoleFunctions.LogType.WARNING);
                             }
                         }
                     }
@@ -140,6 +169,101 @@ namespace BlackOpal
                     Terminal.ReadKey();
                 }
 
+                // Load the system configuration
+                if (FSExists == true)
+                {
+                    ConsoleFunctions.PrintLogMSG($"Attempting to read configuration file...\n\r", ConsoleFunctions.LogType.INFO);
+                    var FoundCFGFile = false;
+
+                    foreach (var Disk in FS.Disks)
+                    {
+                        var PartitionCount = -1;
+
+                        if (FoundCFGFile == true)
+                        {
+                            break;
+                        }
+
+                        foreach (var Partition in Disk.Partitions)
+                        {
+                            PartitionCount++;
+
+                            if (Partition.HasFileSystem == false)
+                            {
+                                ConsoleFunctions.PrintLogMSG($"Partition #{PartitionCount} on disk #{FS.Disks.IndexOf(Disk)} has no filesystem.\n\r", ConsoleFunctions.LogType.WARNING);
+                                continue;
+                            }
+
+                            BootMediumPath = Disk.Partitions[0].RootPath;
+                            BootMediumIndex = FS.Disks.IndexOf(Disk);
+
+                            if (File.Exists(Path.Join(Partition.RootPath, SysConfigFile)) == false)
+                            {
+                                ConsoleFunctions.PrintLogMSG($"The configuration file \"{SysConfigFile}\" doesn't exist in \"{Partition.RootPath}\".\n\r", ConsoleFunctions.LogType.WARNING);
+                                continue;
+                            }
+
+                            FoundCFGFile = true;
+                            SysConfigFile = Path.Join(Partition.RootPath, SysConfigFile);
+                            ConsoleFunctions.PrintLogMSG($"Found system configuration file on partition #{PartitionCount} ({Partition.RootPath}, disk #{FS.Disks.IndexOf(Disk)}).\n\r", ConsoleFunctions.LogType.INFO);
+                            NanoXMLDocument SystemConfigXML = new NanoXMLDocument(File.ReadAllText(SysConfigFile));
+                            Username = SystemConfigXML.RootNode.Value;
+
+                            foreach(var SubNode in SystemConfigXML.RootNode.SubNodes)
+                            {
+                                if (SubNode.Name == "Username")
+                                {
+                                    Username = SubNode.Value;
+                                }
+
+                                else if (SubNode.Name == "DefaultCWD")
+                                {
+                                    if(Directory.Exists(SubNode.Value) == false)
+                                    {
+                                        ConsoleFunctions.PrintLogMSG($"The directory \"{SubNode.Value}\" doesn't exist.\n\r", ConsoleFunctions.LogType.ERROR);
+                                        continue;
+                                    }
+
+                                    Directory.SetCurrentDirectory(SubNode.Value);
+                                }
+
+                                else if (SubNode.Name == "AutoconfigNetwork")
+                                {
+                                    if(SubNode.Value == "True")
+                                    {
+                                        Network.Init();
+                                    }
+                                }
+
+                                else if (SubNode.Name == "NetworkConfig")
+                                {
+                                    
+                                }
+
+                                else if (SubNode.Name == "AutostartGUI")
+                                {
+                                    AutostartGUI = SubNode.Value == "True";
+                                }
+                                
+                                else
+                                {
+                                    ConsoleFunctions.PrintLogMSG($"Invalid subnode name: \"{SubNode.Name}\".\n\r", ConsoleFunctions.LogType.WARNING);
+                                }
+                            }
+
+                            break;
+                        }
+                    }
+                }
+                else
+                {
+                    ConsoleFunctions.PrintLogMSG($"There is no filesystem, so the configuration file will be skipped.\n\r", ConsoleFunctions.LogType.WARNING);
+                }
+                
+                // Instantiate the GUI class
+                ConsoleFunctions.PrintLogMSG("Instantiating the GUI...\n\r", ConsoleFunctions.LogType.INFO);
+                UI = new UserInterface();
+
                 // Collect any garbage that we created
                 ConsoleFunctions.PrintLogMSG("Calling the garbage collector...\n\r", ConsoleFunctions.LogType.INFO);
                 Heap.Collect();
@@ -148,10 +272,15 @@ namespace BlackOpal
                 Terminal.Clear();
 
                 // Print the OS name and version
-                ConsoleFunctions.PrintLogMSG($"{OSName} {OSVersion} - {OSDate}\n\r" +
-                    $"By: {OSAuthor}, with help from {OSContributors}.\n\r" +
+                ConsoleFunctions.PrintLogMSG($"[===== {OSName} {OSVersion} - {OSDate} =====]\n\r" +
+                    $"By: {OSAuthor} (see Contributors.txt for more)\n\r" +
                     $"Kernel started at {KernelStartTime.ToString()} (BTR took {(DateTime.Now.Second - KernelStartTime.Second).ToString()} seconds).\n\r" +
-                    $"Terminal size: {Terminal.Width}x{Terminal.Height} ({UserInterface.ScreenWidth}x{UserInterface.ScreenHeight})\n\n\r", ConsoleFunctions.LogType.NONE);
+                    $"Terminal size: {Terminal.Width}x{Terminal.Height} ({UserInterface.ScreenWidth}x{UserInterface.ScreenHeight}, {TerminalDriver.Replace("Canvas", "")})\n\n\r", ConsoleFunctions.LogType.NONE);
+
+                if (AutostartGUI)
+                {
+                    UI.Init();
+                }
             }
             catch (Exception EX)
             {
@@ -167,10 +296,10 @@ namespace BlackOpal
             {
                 // Print the prompt                
                 HTerminal.ColoredWrite($"{Username}", Color.Magenta);
-                HTerminal.ColoredWrite("@", Color.White);
+                HTerminal.ColoredWrite("@", Color.StackOverflowWhite);
                 HTerminal.ColoredWrite($"{Hostname}", Color.Cyan);
-                HTerminal.ColoredWrite($" ({Directory.GetCurrentDirectory()}) ", Color.Green);
-                HTerminal.ColoredWrite($"{CMDPrompt} ", Color.SuperOrange);
+                HTerminal.ColoredWrite($"[{Directory.GetCurrentDirectory()}] ", Color.Green);
+                HTerminal.ColoredWrite($"{CMDPrompt} ", Color.Red);
                 Terminal.ForegroundColor = Color.StackOverflowWhite;
 
                 // Get user input
@@ -209,64 +338,16 @@ namespace BlackOpal
                     break;
 
                 case "help":
-                    // Check if there are any arguments
-                    if (Arguments.Length == 1)
-                    {
-                        /// #############################
-                        /// Azureian: Please try to keep each header in the help message the same length, it looks better, thanks! (Optionally, you can make it divisible by 2 and add/remove '-' to both sides)
-                        /// Current length: 8 characters
-                        /// #############################
-                        HTerminal.ColoredWrite("Black Opal Help\n", Color.Green);
-                        HTerminal.ColoredWrite("Commands:\n", Color.Green);
-
-                        // Write header Graphics
-                        HTerminal.ColoredWriteLine("  ------------------------------GRAPHICS------------------------------", Color.GoogleBlue);
-                        HTerminal.ColoredWrite("  gui - Start the GUI\n", Color.GoogleBlue);
-                        HTerminal.ColoredWriteLine("  --------------------------------------------------------------------", Color.GoogleBlue);
-                        Terminal.WriteLine();
-
-                        HTerminal.ColoredWriteLine("  ------------------------------TERMINAL------------------------------", Color.GoogleGreen);
-                        HTerminal.ColoredWrite("  clear/cls - Clear the console\n", Color.GoogleGreen);
-                        HTerminal.ColoredWrite("  help - Display this help message\n", Color.GoogleGreen);
-                        HTerminal.ColoredWrite("  echo - Print a message to the console\n", Color.GoogleGreen);
-                        HTerminal.ColoredWrite("  power - Shut down or restart the computer\n", Color.GoogleGreen);
-                        HTerminal.ColoredWrite("  sysinfo - Get system information\n", Color.GoogleGreen);
-                        HTerminal.ColoredWrite("  raminfo - Get RAM information\n", Color.GoogleGreen);
-                        HTerminal.ColoredWrite("  diskinfo - Get disk information\n", Color.GoogleGreen);
-                        HTerminal.ColoredWriteLine("  --------------------------------------------------------------------", Color.GoogleGreen);
-                        Terminal.WriteLine();
-
-                        HTerminal.ColoredWriteLine("  ------------------------------INTERNET------------------------------", Color.GoogleYellow);
-                        HTerminal.ColoredWrite("  netinfo - Get network information\n", Color.GoogleYellow);
-                        HTerminal.ColoredWrite("  netinit - Initialize the NIC\n", Color.GoogleYellow);
-                        HTerminal.ColoredWrite("  nicinfo - Get NIC information\n", Color.GoogleYellow);
-                        HTerminal.ColoredWrite("  ping - Ping a device on the network\n", Color.GoogleYellow);
-                        HTerminal.ColoredWrite("  ntp - Get the current date/time from an NTP server\n", Color.GoogleYellow);
-                        HTerminal.ColoredWriteLine("  --------------------------------------------------------------------", Color.GoogleYellow);
-                        Terminal.WriteLine();
-
-                        HTerminal.ColoredWriteLine("  ------------------------------FILEMGMT------------------------------", Color.GoogleRed); //File Management
-                        HTerminal.ColoredWrite("  mkf - Make a file\n", Color.GoogleRed);
-                        HTerminal.ColoredWrite("  mkdir - Make a directory\n", Color.GoogleRed);
-                        HTerminal.ColoredWrite("  rm - Delete a file or directory\n", Color.GoogleRed);
-                        HTerminal.ColoredWrite("  cd - Change the current working directory\n", Color.GoogleRed);
-                        HTerminal.ColoredWrite("  dir/ls - Get a directory listing\n", Color.GoogleRed);
-                        HTerminal.ColoredWrite("  cat - Print a file's contents to the console\n", Color.GoogleRed);
-                        HTerminal.ColoredWriteLine("  --------------------------------------------------------------------", Color.GoogleRed);
-                        Terminal.WriteLine();
-
-                        HTerminal.ColoredWriteLine("  ------------------------------DEBUGCMD------------------------------", Color.Magenta);
-                        HTerminal.ColoredWrite("  panic - Force a kernel panic for debugging\n", Color.Magenta);
-                        HTerminal.ColoredWriteLine("  --------------------------------------------------------------------", Color.Magenta);
-                        Terminal.WriteLine();
-
-                        HTerminal.ColoredWrite("Type 'help <command>' for more information on a specific command.\n\n", Color.Green);
-                    }
-                    else
+                    if (Arguments.Length > 1)
                     {
                         Help.ShowHelp(Arguments[1]);
                     }
+                    else
+                    {
+                        Help.ShowHelp();
+                    }
                     break;
+
 
 
                 // ** NETWORK **
@@ -293,53 +374,20 @@ namespace BlackOpal
 
                     foreach(var NIC in NetworkDevice.Devices)
                     {
-                        Terminal.WriteLine($"[== {NIC.Name} ({NIC.NameID}) ==]\nMAC: {NIC.MACAddress.ToString()}\nIs ready: {NIC.Ready.ToString()}\n");
+                        Terminal.WriteLine($"[== {NIC.Name} ({NIC.NameID}) ==]\nMAC: {NIC.MACAddress.ToString()}\nIs ready: {NIC.Ready.ToString()}\n\n\r");
                     }
 
                     break;
 
                 // Ping a device on a network using it's IPv4 address
                 case "ping":
-                    if (Network.IsConfigured() == false)
-                    {
-                        ConsoleFunctions.PrintLogMSG($"A NIC must be properly configured before networking can be used.\n\n\r", ConsoleFunctions.LogType.ERROR);
-                        break;
-                    }
-
                     if (Arguments.Length <= 1 || string.IsNullOrWhiteSpace(Arguments[1]))
                     {
                         ConsoleFunctions.PrintLogMSG($"An IP address must be specified.\n\n\r", ConsoleFunctions.LogType.ERROR);
                         break;
                     }
 
-                    if (Network.IsIPv4AddressValid(Arguments[1]) == false)
-                    {
-                        ConsoleFunctions.PrintLogMSG($"\"{Arguments[1]}\" is not a valid IP address.\n\n\r", ConsoleFunctions.LogType.ERROR);
-                        break;
-                    }
-
-                    Terminal.WriteLine($"Pinging {Arguments[1]}:");
-                    int SuccessCounter = 0;
-
-                    for (int i = 0; i < 4; i++)
-                    {
-                        float PingTime = Network.ICMPPing(Network.StringToAddress(Arguments[1]));
-
-                        if(PingTime >= 0)
-                        {
-                            SuccessCounter++;
-                            Terminal.WriteLine($"\t[{i + 1}] Ping succeeded in {PingTime} milliseconds.");
-                            Thread.Sleep(250);
-                        }
-
-                        else
-                        {
-                            Terminal.WriteLine($"\tPing failed.");
-                        }
-                    }
-
-                    Terminal.WriteLine($"{SuccessCounter}/4 pings succeeded. ({(float)(SuccessCounter / 4f) * 100f}%)\n");
-
+                    Ping.PingAddress(Arguments[1]);
                     break;
 
                 // Print network information
@@ -364,33 +412,21 @@ namespace BlackOpal
 
                 // Initialize the NIC
                 case "netinit":
-                    if (Arguments.Length >= 1)
+                    if (Arguments.Length < 2)
                     {
-                        if (Arguments[1] == "dhcp")
-                        {
-                            ConsoleFunctions.PrintLogMSG("Attempting to obtain an IPv4 address via DHCP...\n\r", ConsoleFunctions.LogType.INFO);
+                        ConsoleFunctions.PrintLogMSG($"A configuration method must be specified.\n\n\r", ConsoleFunctions.LogType.ERROR);
+                        break;
+                    }
 
-                            if (Network.DHCPAutoconfig() == false)
-                            {
-                                ConsoleFunctions.PrintLogMSG("DHCP autoconfiguration failed.\n\r", ConsoleFunctions.LogType.ERROR);
-                            }
+                    switch(Arguments[1])
+                    {
+                        case "--dhcp":
+                            Network.Init();
+                            break;
 
-                            // If DHCP worked, print the configuration information
-                            if (Network.IsConfigured())
-                            {
-                                Terminal.WriteLine($"[== NET CONFIG ==]\n" +
-                                    $"IP: {NetworkConfiguration.CurrentNetworkConfig.IPConfig.IPAddress.ToString()}\n" +
-                                    $"SUBNET: {NetworkConfiguration.CurrentNetworkConfig.IPConfig.SubnetMask.ToString()}\n" +
-                                    $"DEFAULT GATEWAY: {NetworkConfiguration.CurrentNetworkConfig.IPConfig.DefaultGateway.ToString()}\n" +
-                                    $"MAC: {NetworkConfiguration.CurrentNetworkConfig.Device.MACAddress.ToString()}\n" +
-                                    $"DEVICE NAME: {NetworkConfiguration.CurrentNetworkConfig.Device.Name.ToString()}\n" +
-                                    $"ID: {NetworkConfiguration.CurrentNetworkConfig.Device.NameID.ToString()}\n");
-                            }
-                            else
-                            {
-                                ConsoleFunctions.PrintLogMSG("DHCP autoconfiguration failed: The device is not ready or an invalid IP address was assigned.\n\n\r", ConsoleFunctions.LogType.ERROR);
-                            }
-                        }
+                        default:
+                            ConsoleFunctions.PrintLogMSG($"Invalid configuration mode: \"{Arguments[1]}\"\n\n\r", ConsoleFunctions.LogType.ERROR);
+                            break;
                     }
 
                     break;
@@ -398,97 +434,120 @@ namespace BlackOpal
 
 
                 // ** FILESYSTEM **
+                // Install the OS to a hard disk
+                case "install":
+                    OSInstaller.Init();
+                    break;
+
                 // Make a file
                 case "mkf":
-                    var NewFileName = "";
-
-                    if (Arguments.Length <= 1 || string.IsNullOrWhiteSpace(Arguments[1]))
+                    try
                     {
-                        ConsoleFunctions.PrintLogMSG($"A file name must be specified.\n\n\r", ConsoleFunctions.LogType.ERROR);
-                        break;
+                        if (Arguments.Length <= 1 || string.IsNullOrWhiteSpace(Arguments[1]))
+                        {
+                            ConsoleFunctions.PrintLogMSG($"A file name must be specified.\n\n\r", ConsoleFunctions.LogType.ERROR);
+                            break;
+                        }
+
+                        FSUtilities.CreateFile(PathUtils.ListToPath(Arguments.ToList(), true));
                     }
-
-                    NewFileName = PathUtils.GetValidPath(PathUtils.ListToPath(Arguments.ToList(), true));
-
-                    if (Path.GetFileName(NewFileName).Length > 8)
+                    catch (Exception EX)
                     {
-                        ConsoleFunctions.PrintLogMSG($"The filename cannot be greater than 8 characters.\n\n\r", ConsoleFunctions.LogType.ERROR);
-                        break;
+                        ConsoleFunctions.PrintLogMSG($"{EX.Message}\n\n\r", ConsoleFunctions.LogType.ERROR);
                     }
-
-                    if (File.Exists(NewFileName) == true)
-                    {
-                        ConsoleFunctions.PrintLogMSG($"The file \"{NewFileName}\" already exists.\n\n\r", ConsoleFunctions.LogType.ERROR);
-                        break;
-                    }
-
-                    NewFileName = Path.GetFullPath(NewFileName);
-                    FS.CreateFile(NewFileName);
 
                     break;
 
                 // Make a directory
                 case "mkdir":
-                    var NewDirName = "";
-
-                    if (Arguments.Length <= 1 || string.IsNullOrWhiteSpace(Arguments[1]))
+                    try
                     {
-                        ConsoleFunctions.PrintLogMSG($"A directory name must be specified.\n\n\r", ConsoleFunctions.LogType.ERROR);
-                        break;
+                        if (Arguments.Length <= 1 || string.IsNullOrWhiteSpace(Arguments[1]))
+                        {
+                            ConsoleFunctions.PrintLogMSG($"A directory name must be specified.\n\n\r", ConsoleFunctions.LogType.ERROR);
+                            break;
+                        }
+
+                        FSUtilities.CreateDirectory(PathUtils.ListToPath(Arguments.ToList(), true));
                     }
-
-                    NewDirName = PathUtils.GetValidPath(PathUtils.ListToPath(Arguments.ToList(), true));
-
-                    if (Directory.Exists(NewDirName) == true)
+                    catch (Exception EX)
                     {
-                        ConsoleFunctions.PrintLogMSG($"The directory \"{NewDirName}\" already exists.\n\n\r", ConsoleFunctions.LogType.ERROR);
-                        break;
+                        ConsoleFunctions.PrintLogMSG($"{EX.Message}\n\n\r", ConsoleFunctions.LogType.ERROR);
                     }
-
-                    NewDirName = Path.GetFullPath(NewDirName);
-                    FS.CreateDirectory(NewDirName);
 
                     break;
 
                 // Delete a file or directory
                 case "rm":
-                    bool DeleteDir = false;
-                    int PathArgIndex = 1;
-                    var NewPathName = "";
-
-                    foreach(var Arg in Arguments)
+                    try
                     {
-                        if (Arg == "-rf")
-                        {
-                            DeleteDir = true;
-                            var ArgsList = Arguments.ToList();
+                        bool DeleteDir = false;
+                        int PathArgIndex = 1;
 
-                            ArgsList.RemoveAt(1);
-                            Arguments = ArgsList.ToArray();
+                        foreach(var Arg in Arguments)
+                        {
+                            if (Arg == "-rf")
+                            {
+                                DeleteDir = true;
+                                var ArgsList = Arguments.ToList();
+
+                                ArgsList.RemoveAt(1);
+                                Arguments = ArgsList.ToArray();
+                                break;
+                            }
+                        }
+
+                        if (Arguments.Length <= PathArgIndex || string.IsNullOrWhiteSpace(Arguments[PathArgIndex]))
+                        {
+                            ConsoleFunctions.PrintLogMSG($"A file or directory name must be specified.\n\n\r", ConsoleFunctions.LogType.ERROR);
                             break;
                         }
+
+                        FSUtilities.RemoveItem(PathUtils.ListToPath(Arguments.ToList(), true), DeleteDir);
+                    }
+                    catch (Exception EX)
+                    {
+                        ConsoleFunctions.PrintLogMSG($"{EX.Message}\n\n\r", ConsoleFunctions.LogType.ERROR);
+                    }
+                    
+                    break;
+
+                // Copy a file to a new destination
+                case "cp":
+                case "copy":
+                    try
+                    {
+                        if (Arguments.Length <= 2 || string.IsNullOrWhiteSpace(Arguments[1]) || string.IsNullOrWhiteSpace(Arguments[2]))
+                        {
+                            ConsoleFunctions.PrintLogMSG($"A file and directory name must be specified.\n\n\r", ConsoleFunctions.LogType.ERROR);
+                            break;
+                        }
+
+                        FSUtilities.CopyItem(Arguments[1], Arguments[2]);
+                    }
+                    catch (Exception EX)
+                    {
+                        ConsoleFunctions.PrintLogMSG($"{EX.Message}\n\n\r", ConsoleFunctions.LogType.ERROR);
                     }
 
-                    if (Arguments.Length <= PathArgIndex || string.IsNullOrWhiteSpace(Arguments[PathArgIndex]))
-                    {
-                        ConsoleFunctions.PrintLogMSG($"A file or directory name must be specified.\n\n\r", ConsoleFunctions.LogType.ERROR);
-                        break;
-                    }
+                    break;
 
-                    NewPathName = PathUtils.GetValidPath(PathUtils.ListToPath(Arguments.ToList(), true));
-                    NewPathName = Path.GetFullPath(NewPathName);
+                // Move a file to a new destination
+                case "mv":
+                case "move":
+                    try
+                    {
+                        if (Arguments.Length <= 2 || string.IsNullOrWhiteSpace(Arguments[1]) || string.IsNullOrWhiteSpace(Arguments[2]))
+                        {
+                            ConsoleFunctions.PrintLogMSG($"A file and directory name must be specified.\n\n\r", ConsoleFunctions.LogType.ERROR);
+                            break;
+                        }
 
-                    if (File.Exists(NewPathName))
-                    {
-                        File.Delete(NewPathName);
+                        FSUtilities.MoveItem(Arguments[1], Arguments[2]);
                     }
-                    else if (Directory.Exists(NewPathName) && DeleteDir)
+                    catch(Exception EX)
                     {
-                        Directory.Delete(NewPathName);
-                    }
-                    else
-                    {
-                        ConsoleFunctions.PrintLogMSG($"The item \"{NewPathName}\" doesn't exist.\n\n\r", ConsoleFunctions.LogType.ERROR);
+                        ConsoleFunctions.PrintLogMSG($"{EX.Message}\n\n\r", ConsoleFunctions.LogType.ERROR);
                     }
 
                     break;
@@ -497,18 +556,53 @@ namespace BlackOpal
                 case "diskinfo":
                     foreach(var Disk in FS.Disks)
                     {
-                        Terminal.WriteLine($"[== DISK #{FS.Disks.IndexOf(Disk)} ==]");
-                        Disk.DisplayInformation();
+                        var DiskType = "Unknown";
+
+                        if (Disk.Type == Cosmos.HAL.BlockDevice.BlockDeviceType.HardDrive)
+                        {
+                            DiskType = "HDD";
+                        }
+                        else if (Disk.Type == Cosmos.HAL.BlockDevice.BlockDeviceType.RemovableCD)
+                        {
+                            DiskType = "CD/DVD";
+                        }
+                        else if (Disk.Type == Cosmos.HAL.BlockDevice.BlockDeviceType.Removable)
+                        {
+                            DiskType = "Removable";
+                        }
+
+                        Terminal.WriteLine($"[== DISK #{FS.Disks.IndexOf(Disk)} ({DiskType}) ==]");
+
+                        for (int i = 0; i < Disk.Partitions.Count; i++)
+                        {
+                            Terminal.WriteLine("Partition #: " + (i + 1));
+                            Terminal.WriteLine("Block Size: " + Disk.Partitions[i].Host.BlockSize + " bytes");
+                            Terminal.WriteLine("Block Partitions: " + Disk.Partitions[i].Host.BlockCount);
+                            Terminal.WriteLine("Size: " + Disk.Partitions[i].Host.BlockCount * Disk.Partitions[i].Host.BlockSize / 1024 / 1024 + " MB");
+                        }
+
                         Terminal.WriteLine($"Root path: {Disk.Partitions[0].RootPath}\n");
                     }
 
                     Terminal.WriteLine();
                     break;
 
+                // Format the first partition of a disk
+                case "format":
+                    try
+                    {
+                        Terminal.Write("Choose a disk to format >> ");
+                        FSUtilities.FormatDisk(Convert.ToInt32(Terminal.ReadLine()));
+                    }
+                    catch (Exception EX)
+                    {
+                        ConsoleFunctions.PrintLogMSG($"{EX.Message}\n\n\r", ConsoleFunctions.LogType.ERROR);
+                    }
+
+                    break;
+
                 // Change the current working directory
                 case "cd":
-                    var Dir = "0:\\";
-
                     // Check to make sure arguments exist
                     if (Arguments.Length <= 1 || string.IsNullOrWhiteSpace(Arguments[1]))
                     {
@@ -516,19 +610,7 @@ namespace BlackOpal
                         break;
                     }
 
-                    // Get a valid path from the above path
-                    Dir = PathUtils.GetValidPath(PathUtils.ListToPath(Arguments.ToList(), true));
-
-                    // Make sure the valid directory exists
-                    if (Directory.Exists(Dir) == false)
-                    {
-                        ConsoleFunctions.PrintLogMSG($"The directory \"{Dir}\" does not exist.\n\n\r", ConsoleFunctions.LogType.ERROR);
-                        break;
-                    }
-
-                    // Change to the new directory
-                    Dir = Path.GetFullPath(Dir);
-                    Directory.SetCurrentDirectory(Dir);
+                    FSUtilities.ChangeDirectory(PathUtils.ListToPath(Arguments.ToList(), true));
                     break;
 
                 // Get a directory listing
@@ -567,7 +649,19 @@ namespace BlackOpal
                             HTerminal.ColoredWrite("[FILE] ", Color.GoogleGreen);
                             Terminal.Write(Entry.mName);
                             HTerminal.ColoredWrite($" ---{new string('-', LongestItemLength - Entry.mName.Length)} ", Color.UltraViolet);
-                            HTerminal.ColoredWriteLine($"{Entry.mSize / 1024f} KB", Color.Magenta);
+
+                            if (Entry.mSize > 1024)
+                            {
+                                HTerminal.ColoredWriteLine($"{Entry.mSize / 1024d} KB", Color.Magenta);
+                            }
+                            else if (Entry.mSize > 0)
+                            {
+                                HTerminal.ColoredWriteLine($"{Entry.mSize} B", Color.Magenta);
+                            }
+                            else
+                            {
+                                HTerminal.ColoredWriteLine("0 B", Color.Magenta);
+                            }
                         }
 
                         else if (Directory.Exists(Entry.mFullPath))
@@ -582,23 +676,31 @@ namespace BlackOpal
 
                 // Get a valid path from
                 case "validpath":
-                    Terminal.WriteLine($"\"{PathUtils.GetValidPath(Arguments[1])}\"");
+                    if (Arguments.Length <= 1 || string.IsNullOrWhiteSpace(Arguments[1]))
+                    {
+                        ConsoleFunctions.PrintLogMSG($"You must provide a string.\n\n\r", ConsoleFunctions.LogType.ERROR);
+                        break;
+                    }
+
+                    Terminal.WriteLine($"\"{PathUtils.GetValidPath(Arguments[1])}\"\n\r");
                     break;
 
                 // Print a file's contents to the console
                 case "cat":
                     try
                     {
-                        var FilePath = Path.GetFullPath(PathUtils.GetValidPath(Arguments[1]));
-
-                        if (FilePath.Length <= 1 || string.IsNullOrWhiteSpace(FilePath))
+                        if (Arguments.Length <= 1 || string.IsNullOrWhiteSpace(Arguments[1]))
                         {
                             ConsoleFunctions.PrintLogMSG($"A file name must be specified.\n\n\r", ConsoleFunctions.LogType.ERROR);
+                            break;
                         }
 
-                        else if (File.Exists(Path.GetFullPath(FilePath)) == false)
+                        var FilePath = Path.GetFullPath(PathUtils.GetValidPath(Arguments[1]));
+
+                        if (File.Exists(Path.GetFullPath(FilePath)) == false)
                         {
                             ConsoleFunctions.PrintLogMSG($"The file \"{FilePath}\" does not exist.\n\n\r", ConsoleFunctions.LogType.ERROR);
+                            break;
                         }
 
                         else
@@ -617,56 +719,112 @@ namespace BlackOpal
                 case "hex":
                     try
                     {
-                        var FilePath = Path.GetFullPath(PathUtils.GetValidPath(Arguments[1]));
-
-                        if (FilePath.Length <= 1 || string.IsNullOrWhiteSpace(FilePath))
+                        if (Arguments.Length <= 1 || string.IsNullOrWhiteSpace(Arguments[1]))
                         {
                             ConsoleFunctions.PrintLogMSG($"A file name must be specified.\n\n\r", ConsoleFunctions.LogType.ERROR);
+                            break;
                         }
 
-                        else if (File.Exists(Path.GetFullPath(FilePath)) == false)
+                        var FilePath = Path.GetFullPath(PathUtils.GetValidPath(Arguments[1]));                        
+
+                        if (File.Exists(Path.GetFullPath(FilePath)) == false)
                         {
                             ConsoleFunctions.PrintLogMSG($"The file \"{FilePath}\" does not exist.\n\n\r", ConsoleFunctions.LogType.ERROR);
+                            break;
                         }
 
-                        else
+                        Hex.PrintBase16(File.ReadAllBytes(Path.GetFullPath(FilePath)));
+                    }
+                    catch (Exception EX)
+                    {
+                        ConsoleFunctions.PrintLogMSG($"{EX.Message}\n\n\r", ConsoleFunctions.LogType.ERROR);
+                    }
+
+                    break;
+
+                // Get ELF executable properties
+                case "elf":
+                    try
+                    {
+                        if (Arguments.Length <= 1 || string.IsNullOrWhiteSpace(Arguments[1]))
                         {
-                            // Temporary variables
-                            string ByteHex = "00";
-                            byte[] Content = File.ReadAllBytes(Path.GetFullPath(FilePath));
-                            int LineNumber = 1;
+                            ConsoleFunctions.PrintLogMSG($"A file name must be specified.\n\n\r", ConsoleFunctions.LogType.ERROR);
+                            break;
+                        }
 
-                            // Print the first line number
-                            HTerminal.ColoredWrite($"{LineNumber}: ", Color.GoogleGreen);
+                        var ELFPath = PathUtils.GetValidPath(Arguments[1]);
 
-                            // Loop through each byte in the file
-                            for (long ByteIndex = 0; ByteIndex < Content.Length; ByteIndex++)
-                            {
-                                // Convert the byte to hex
-                                ByteHex = $"{Convert.ToInt32(Content[ByteIndex]):X}";
+                        if (File.Exists(ELFPath) == false)
+                        {
+                            ConsoleFunctions.PrintLogMSG($"The file \"{ELFPath}\" does not exist.\n\n\r", ConsoleFunctions.LogType.ERROR);
+                            break;
+                        }
 
-                                // Add a leading zero if the byte is <= 15 (this is for formatting purposes)
-                                if (Convert.ToInt32(ByteHex, 16) <= 15)
-                                {
-                                    ByteHex = ByteHex.Insert(0, "0");
-                                }
+                        var ELFFile = new ELFInfo(ELFPath);
 
-                                // Print the hex byte
-                                Terminal.Write($"{ByteHex} ");
+                        if (ELFFile.IsElfExecutable() == false)
+                        {
+                            ConsoleFunctions.PrintLogMSG("This file is not an ELF executable.\n\n\r", ConsoleFunctions.LogType.ERROR);
+                            break;
+                        }
 
-                                // If more than 12 characters have been printed on the current line, start a new line
-                                if ((ByteIndex + 1) % 12 == 0 && ByteIndex > 0 && Content.Length != 12)
-                                {
-                                    LineNumber++;
-                                    Terminal.WriteLine();
-                                    HTerminal.ColoredWrite($"{LineNumber}: ", Color.GoogleGreen);
+                        var ELFProperties = ELFFile.GetExecutableProperties();
 
-                                    // Collect garbage so the OS doesn't crash
-                                    Heap.Collect();
-                                }
-                            }
+                        Terminal.WriteLine($"Magic number:    {ELFProperties[0]}");
+                        Terminal.WriteLine($"Bit format:      {ELFProperties[1]}");
+                        Terminal.WriteLine($"Endianness:      {ELFProperties[2]}");
+                        Terminal.WriteLine($"Target OS ABI:   {ELFProperties[3]} ({ELFProperties[4]})");
+                        Terminal.WriteLine($"ISA:             {ELFProperties[5]} ({ELFProperties[6]})");
+                        Terminal.WriteLine($"Entry point:     {ELFProperties[7]}");
+                        Terminal.WriteLine($"Version:         {ELFProperties[8]} (0x{ELFProperties[8]})\n\r");
+                    }
+                    catch (Exception EX)
+                    {
+                        ConsoleFunctions.PrintLogMSG($"{EX.Message}\n\n\r", ConsoleFunctions.LogType.ERROR);
+                    }
+                    
+                    break;
 
-                            Terminal.WriteLine("\n\r");
+                // Get the checksum of a file
+                case "checksum":
+                    try
+                    {
+                        if (Arguments.Length <= 2 || string.IsNullOrWhiteSpace(Arguments[1]) || string.IsNullOrWhiteSpace(Arguments[2]))
+                        {
+                            ConsoleFunctions.PrintLogMSG($"A file name and checksum method must be specified.\n\n\r", ConsoleFunctions.LogType.ERROR);
+                            break;
+                        }
+
+                        var FilePath = Path.GetFullPath(PathUtils.GetValidPath(Arguments[2]));
+
+                        if (File.Exists(Path.GetFullPath(FilePath)) == false)
+                        {
+                            ConsoleFunctions.PrintLogMSG($"The file \"{FilePath}\" does not exist.\n\n\r", ConsoleFunctions.LogType.ERROR);
+                            break;
+                        }
+
+                        switch (Arguments[1])
+                        {
+                            case "--MD5":
+                                Terminal.WriteLine($"{MD5.hash(File.ReadAllText(Path.GetFullPath(FilePath)))}\n\r");
+                                break;
+
+                            case "--SHA256":
+                                Terminal.WriteLine($"{SHA256.ComputeHash(File.ReadAllBytes(Path.GetFullPath(FilePath)))}\n\r");
+                                break;
+
+                            case "--CRC16_ARC":
+                                Terminal.WriteLine($"{CRC.CRC16_ARC(File.ReadAllBytes(Path.GetFullPath(FilePath)))}\n\r");
+                                break;
+                            
+                            // Causes the kernel to explode lol
+                            /*case "--CRC16_MODBUS":
+                                Terminal.WriteLine($"{CRC.CRC16_MODBUS(File.ReadAllBytes(Path.GetFullPath(FilePath)))}\n\r");
+                                break;*/                       
+
+                            default:
+                                ConsoleFunctions.PrintLogMSG($"Invalid checksum method: \"{Arguments[1]}\"\n\r", ConsoleFunctions.LogType.ERROR);
+                                break;
                         }
                     }
                     catch (Exception EX)
@@ -674,6 +832,44 @@ namespace BlackOpal
                         ConsoleFunctions.PrintLogMSG($"{EX.Message}\n\n\r", ConsoleFunctions.LogType.ERROR);
                     }
 
+                    break;
+
+                case "edit":
+                    try
+                    {
+                        if (Arguments.Length <= 1 || string.IsNullOrWhiteSpace(Arguments[1]))
+                        {
+                            MIV.MIV.StartMIV(null);
+                        }
+                        else
+                        {
+                            MIV.MIV.StartMIV(Path.GetFullPath(PathUtils.GetValidPath(Arguments[1])));
+                        }
+                    }
+                    catch(Exception EX)
+                    {
+                        ConsoleFunctions.PrintLogMSG($"{EX.Message}\n\n\r", ConsoleFunctions.LogType.ERROR);
+                    }
+
+                    break;
+
+                case "lua":
+                    if (Arguments.Length <= 1 || string.IsNullOrWhiteSpace(Arguments[1]))
+                    {
+                        ConsoleFunctions.PrintLogMSG($"A file name must be specified.\n\n\r", ConsoleFunctions.LogType.ERROR);
+                        break;
+                    }
+
+                    var LuaPath = PathUtils.GetValidPath(Arguments[1]);
+
+                    if (File.Exists(LuaPath) == false)
+                    {
+                        ConsoleFunctions.PrintLogMSG($"The file \"{LuaPath}\" does not exist.\n\n\r", ConsoleFunctions.LogType.ERROR);
+                        break;
+                    }
+
+                    Lua.RunLuaScript(LuaPath);
+                    //Terminal.WriteLine();
                     break;
 
 
@@ -693,24 +889,28 @@ namespace BlackOpal
                             ConsoleFunctions.PrintLogMSG("Shutting down...\n\n\r", ConsoleFunctions.LogType.INFO);
                             Thread.Sleep(250);
                             Sys.Power.Shutdown();
+                            ConsoleFunctions.PrintLogMSG("Shutdown failed!", ConsoleFunctions.LogType.ERROR);
                             break;
 
                         case "-r":
                             ConsoleFunctions.PrintLogMSG("Rebooting...\n\n\r", ConsoleFunctions.LogType.INFO);
                             Thread.Sleep(250);
                             Sys.Power.Reboot();
+                            ConsoleFunctions.PrintLogMSG("Shutdown failed!", ConsoleFunctions.LogType.ERROR);
                             break;
 
                         case "-as":
                             ConsoleFunctions.PrintLogMSG("Shutting down (ACPI)...\n\n\r", ConsoleFunctions.LogType.INFO);
                             Thread.Sleep(250);
                             ACPI.Shutdown();
+                            ConsoleFunctions.PrintLogMSG("ACPI shutdown failed!", ConsoleFunctions.LogType.ERROR);
                             break;
 
                         case "-ar":
                             ConsoleFunctions.PrintLogMSG("Rebooting (ACPI)...\n\n\r", ConsoleFunctions.LogType.INFO);
                             Thread.Sleep(250);
                             ACPI.Reboot();
+                            ConsoleFunctions.PrintLogMSG("ACPI reboot failed!", ConsoleFunctions.LogType.ERROR);
                             break;
 
                         default:
@@ -725,7 +925,8 @@ namespace BlackOpal
                 case "raminfo":
                     UsedRAM = GCImplementation.GetUsedRAM() / 1024;
                     Terminal.WriteLine($"[== RAM INFORMATION ==]\nRAM: {TotalInstalledRAM} KB\n" +
-                        $"USED: {UsedRAM}/{TotalInstalledRAM} KB ({MathHelpers.TruncateToDecimalPlace((UsedRAM / TotalInstalledRAM) * 100f, 4)}%)\n");
+                        $"USED: {UsedRAM}/{TotalInstalledRAM} KB ({MathHelpers.TruncateToDecimalPlace((UsedRAM / TotalInstalledRAM) * 100f, 4)}%)\n" +
+                        $"Allocated objects{HeapSmall.GetAllocatedObjectCount()}\n");
                     break;
 
                 // Get system information
@@ -739,11 +940,20 @@ namespace BlackOpal
                         $"System uptime: {DateTime.Now - KernelStartTime}\n");
                     break;
 
+                // Print operating system information
+                case "about":
+                    ConsoleFunctions.PrintLogMSG($"{OSName} {OSVersion} - {OSDate}\n\r" +
+                        $"By: {OSAuthor} (see Contributors.txt for more)\n\r" +
+                        $"Kernel started at {KernelStartTime.ToString()}.\n\r" +
+                        $"Terminal size: {Terminal.Width}x{Terminal.Height} ({UserInterface.ScreenWidth}x{UserInterface.ScreenHeight}, {TerminalDriver.Replace("Canvas", "")})\n\n\r", ConsoleFunctions.LogType.NONE);
+                    break;
+
 
 
                 // ** EXTRA **
                 // Print what the user entered as an argument
                 case "echo":
+                case "print":
                     if (Arguments.Length <= 1 || string.IsNullOrWhiteSpace(Arguments[1]))
                     {
                         break;

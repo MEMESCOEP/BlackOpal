@@ -1,10 +1,12 @@
-﻿using Cosmos.System;
+﻿using Cosmos.Core.Memory;
+using Cosmos.System;
 using Cosmos.Core;
 using System.Collections.Generic;
 using System.Drawing;
 using System;
+using BlackOpal.Utilities.Calculations;
 using BlackOpal.GUI.Component;
-using BlackOpal.Calculations;
+using PrismAPI.Graphics;
 using Color = PrismAPI.Graphics.Color;
 
 namespace GUI.Component
@@ -13,12 +15,15 @@ namespace GUI.Component
     {
         /* VARIABLES */
         public List<WindowElement> WindowElements = new List<WindowElement>();
-        public TextButton WindowCloseButton = new TextButton();
+        public TextButton WindowCloseButton = new TextButton(new Point(0, 0));
+        public Action UpdateAction = new Action(() => { });
+        public Canvas Framebuffer;
+        public Canvas WindowIcon = new Canvas(16, 16);
         public Color UnfocusedTitlebarColor = new Color(139, 0, 139);
         public Color FocusedTitlebarColor = new Color(147, 112, 219);
-        public Color WindowBGColor = Color.StackOverflowWhite;
-        public Size Size = new Size(320, 200);
+        public Color WindowBGColor = Color.StackOverflowBlack;
         public Point Position = new Point(0, 0);
+        public Size Size = new Size(320, 200);
         public string Title = "New Window";
         public uint WindowID = 0;
         public bool DrawTitleBar = true;
@@ -34,7 +39,8 @@ namespace GUI.Component
             Position = WindowPosition;
             Title = WindowTitle;
 
-            WindowCloseButton.ButtonPosition = new Point((Position.X + Size.Width) - 22, Position.Y + 6);
+            Framebuffer = new Canvas((ushort)WindowSize.Width, (ushort)WindowSize.Height);
+            WindowCloseButton.ButtonGlobalPosition = new Point((Position.X + Size.Width) - 22, Position.Y + 6);
             WindowCloseButton.ScreenCanvas = UserInterface.ScreenCanvas;
             WindowCloseButton.ButtonHighlightColor = new Color(180, 0, 0);
             WindowCloseButton.ButtonPressedColor = new Color(75, 0, 130);
@@ -67,8 +73,6 @@ namespace GUI.Component
             {
                 Position.X = Math.Clamp((int)MouseManager.X - DragOffsetX, 0, UserInterface.ScreenWidth - 4);
                 Position.Y = Math.Clamp((int)MouseManager.Y - DragOffsetY, 0, UserInterface.ScreenHeight - 4);
-                //Position.X = (int)MouseManager.X - DragOffsetX;
-                //Position.Y = (int)MouseManager.Y - DragOffsetY;
                 UserInterface.ClickPoint.X = (int)MouseManager.X;
                 UserInterface.ClickPoint.Y = (int)MouseManager.Y;
             }
@@ -77,11 +81,7 @@ namespace GUI.Component
         // Check to see if the user is interacting with the window controls (minimize, maximize, close, etc)
         public void CheckControls()
         {
-            // Close button
-            if (IsBeingDragged == false && MouseManager.LastMouseState != MouseState.Left && MouseManager.MouseState == MouseState.Left && ShapeCollision.IsPointInsideCircle((int)MouseManager.X, (int)MouseManager.Y, (Position.X + Size.Width) - 12, Position.Y + 12, 6))
-            {
-                //Close();
-            }
+
         }
 
         // Check to see if the user changed focus to the window
@@ -90,7 +90,7 @@ namespace GUI.Component
             if (WindowManager.FocusingWindow || MouseManager.LastMouseState == MouseState.Left || WindowManager.WindowList.IndexOf(this) == WindowManager.WindowList.Count - 1)
                 return false;
 
-            if (MouseManager.MouseState == MouseState.Left && ShapeCollision.IsPointInsideRectangle((int)MouseManager.X, (int)MouseManager.Y, Position.X, Position.Y, Position.X + Size.Width, Position.Y + Size.Height))
+            if (MouseManager.MouseState == MouseState.Left && ShapeCollision.IsPointInsideRectangle((int)MouseManager.X, (int)MouseManager.Y, Position.X, Position.Y, Position.X + Size.Width, Position.Y + Size.Height + 24))
             {
                 int oldIndex = WindowManager.WindowList.IndexOf(this);
 
@@ -108,7 +108,14 @@ namespace GUI.Component
         public void Close()
         {
             WindowManager.WindowList.RemoveAt(WindowManager.WindowList.IndexOf(this));
-            GCImplementation.Free(this);
+
+            // Free objects from memory
+            foreach(var Element in WindowElements)
+            {
+                //GCImplementation.Free(Element);
+            }
+
+            GCImplementation.Free(Framebuffer);
         }
     }
 }
