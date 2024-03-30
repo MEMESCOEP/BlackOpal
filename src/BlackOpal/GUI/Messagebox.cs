@@ -91,7 +91,7 @@ namespace BlackOpal.GUI
             // Set up the OK/Close button
             OKButton.ButtonText = "OK";
             OKButton.ButtonColor = new PrismAPI.Graphics.Color(255f, 185f, 185f, 185f);
-            OKButton.PressedAction = MSGWindow.Close;
+            OKButton.PressedAction = new Action(() => { MSGWindow.Close(); });
                 
             // Set up the OK/Close element
             OKElement.Type = WindowElement.ElementType.TEXT_BUTTON;

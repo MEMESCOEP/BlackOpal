@@ -25,15 +25,15 @@ using BlackOpal.Utilities.Calculations;
 using BlackOpal.Utilities.KernelUtils;
 using BlackOpal.Utilities.Converters;
 using BlackOpal.Utilities.Viewers;
+using BlackOpal.Utilities.Interpreters;
+using BlackOpal.Utilities.Installers;
+using BlackOpal.Utilities.Parsers;
 using BlackOpal.IO.Networking;
 using BlackOpal.IO.Filesystem;
 using SVGAIITerminal.TextKit;
 using PrismAPI.Graphics;
 using HydrixLIB;
 using Sys = Cosmos.System;
-using BlackOpal.Utilities.Interpreters;
-using BlackOpal.Utilities.Parsers;
-using BlackOpal.Utilities.Installers;
 
 /* NAMESPACES */
 namespace BlackOpal
@@ -45,10 +45,10 @@ namespace BlackOpal
         [ManifestResourceStream(ResourceName = "BlackOpal.Assets.Fonts.Terminal.btf")]
         public static byte[] TTFFont;
 
-        public const string OSVersion = "0.0.3";
+        public const string OSVersion = "0.0.327";
         public const string OSAuthor = "memescoep";
         public const string OSName = "Black Opal";
-        public const string OSDate = "3-3-2024";
+        public const string OSDate = "3-27-2024";
         public const bool DEBUG = false;
 
         public static SVGAIITerminal.SVGAIITerminal Terminal = new SVGAIITerminal.SVGAIITerminal(UserInterface.ScreenWidth, UserInterface.ScreenHeight, new BtfFontFace(TTFFont, 16));
@@ -57,7 +57,6 @@ namespace BlackOpal
         public static HTerminal HTerminal = new HTerminal(Terminal);
         public static DateTime KernelStartTime;
         public static Color TerminalColor = Color.Green;
-        public static string InstallationMarker = "INSMkr.IMR";
         public static string HydrixLibVersion = HTerminal.GetHydrixLibVersion();
         public static string TerminalDriver = "None";
         public static string BootMediumPath = "None";
@@ -65,9 +64,10 @@ namespace BlackOpal
         public static float TotalInstalledRAM = 0f;
         public static float UsedRAM = 0f;
         public static bool FSExists = false;
+        public static int InstallationMarker = 0x69;
         public static int BootMediumIndex = -1;
         public string CMDPrompt = ">>";
-        public string Username = "root";
+        public string Username = "UnknownUser";
         public string Hostname = "BlackOpal";
         public static Sys.FileSystem.CosmosVFS FS;
         private bool AutostartGUI = false;
@@ -87,7 +87,12 @@ namespace BlackOpal
                 // Get the start time of the kernel
                 KernelStartTime = DateTime.Now;
 
+                // Get the total amount of installed RAM in the computer
+                TotalInstalledRAM = CPU.GetAmountOfRAM() * 1024f;
+                ConsoleFunctions.PrintLogMSG($"Total installed RAM: {TotalInstalledRAM} KB\n\r", ConsoleFunctions.LogType.DEBUG);
+
                 // Initialize the terminal
+                Terminal.Clear();
                 ConsoleFunctions.PrintLogMSG("Configuring terminal...\n\r", ConsoleFunctions.LogType.INFO);
                 Terminal.CursorShape = SVGAIITerminal.CursorShape.Block;
                 TerminalDriver = ((PrismAPI.Hardware.GPU.Display)Terminal.Contents).GetName();
@@ -109,10 +114,23 @@ namespace BlackOpal
 
                 // Commented out because it causes crashes (I probably fucked it up lmao)
                 // Zero memory so the system starts in a known state
-                /*for (uint i = 512; i < 32768; i += 512)
+                /*ConsoleFunctions.PrintLogMSG($"Zeroing memory from {CPU.GetEndOfKernel()} -> {TotalInstalledRAM * 1024f}...\n\r", ConsoleFunctions.LogType.INFO);
+
+                for (uint i = 65535; i < TotalInstalledRAM * 1024f; i += 65535)
                 {
-                    ConsoleFunctions.PrintLogMSG($"Zeroing memory block {CPU.GetEndOfKernel() + i} -> {CPU.GetEndOfKernel() + i + 512}...\n\r", ConsoleFunctions.LogType.INFO);
-                    CPU.ZeroFill(CPU.GetEndOfKernel() + i, 512);
+                    if (CPU.GetEndOfKernel() + i > TotalInstalledRAM * 1024f) 
+                    {
+                        //var NumberOfBytesToEnd = (uint)(TotalInstalledRAM * 1024f) - (CPU.GetEndOfKernel() + i);
+
+                        //ConsoleFunctions.PrintLogMSG($"Zeroing memory block {CPU.GetEndOfKernel() + i} -> {CPU.GetEndOfKernel() + i + NumberOfBytesToEnd} ({NumberOfBytesToEnd} bytes)...\n\r", ConsoleFunctions.LogType.INFO);
+                        //CPU.ZeroFill(CPU.GetEndOfKernel() + i, NumberOfBytesToEnd);
+                        break;
+                    }
+                    else
+                    {
+                        ConsoleFunctions.PrintLogMSG($"Zeroing memory block {CPU.GetEndOfKernel() + i} -> {CPU.GetEndOfKernel() + i + 65535} ({(uint)(TotalInstalledRAM * 1024f) - (CPU.GetEndOfKernel() + i)} bytes remaining)...\n\r", ConsoleFunctions.LogType.INFO);
+                        CPU.ZeroFill(CPU.GetEndOfKernel() + i, 65535);
+                    }
                 }*/
 
                 // Initialize ACPI
@@ -122,9 +140,6 @@ namespace BlackOpal
                 // Set the keyboard layout (this may help with some keyboards acting funky)
                 ConsoleFunctions.PrintLogMSG($"Setting keyboard layout (US-Standard)...\n\r", ConsoleFunctions.LogType.INFO);
                 Sys.KeyboardManager.SetKeyLayout(new Sys.ScanMaps.USStandardLayout());
-
-                // Get the total amount of installed RAM in the computer
-                TotalInstalledRAM = CPU.GetAmountOfRAM() * 1024f;
 
                 // Create and register the virtual filesystem object
                 ConsoleFunctions.PrintLogMSG("Creating and registering the virtual filesystem...\n\r", ConsoleFunctions.LogType.INFO);
@@ -138,12 +153,16 @@ namespace BlackOpal
                     if (FS.Disks.Count > 0)
                     {
                         ConsoleFunctions.PrintLogMSG("Setting the current working directory...\n\r", ConsoleFunctions.LogType.INFO);
+
                         foreach (var Disk in FS.Disks)
                         {
+                            ConsoleFunctions.PrintLogMSG($"Searching disk #{FS.Disks.IndexOf(Disk)}...\n\r", ConsoleFunctions.LogType.DEBUG);
+
                             if (Disk.Partitions.Count > 0)
                             {
                                 if (Disk.Partitions[0].HasFileSystem && String.IsNullOrEmpty(Disk.Partitions[0].RootPath) == false)
                                 {
+                                    ConsoleFunctions.PrintLogMSG($"Searching partition #0...\n\r", ConsoleFunctions.LogType.DEBUG);
                                     FSExists = true;
                                     Directory.SetCurrentDirectory(Disk.Partitions[0].RootPath);
                                     ConsoleFunctions.PrintLogMSG($"Working directory is: \"{Disk.Partitions[0].RootPath}\"\n\r", ConsoleFunctions.LogType.DEBUG);
@@ -160,7 +179,8 @@ namespace BlackOpal
                     else
                     {
                         ConsoleFunctions.PrintLogMSG("No functioning FAT32/UDF formatted disks are installed, You won't be able to save anything.\n\n\rPress any key to continue.", ConsoleFunctions.LogType.WARNING);
-                        Terminal.ReadKey();
+                        Terminal.ReadKey(true);
+                        Terminal.WriteLine();
                     }
                 }
                 catch(Exception EX)
@@ -174,9 +194,12 @@ namespace BlackOpal
                 {
                     ConsoleFunctions.PrintLogMSG($"Attempting to read configuration file...\n\r", ConsoleFunctions.LogType.INFO);
                     var FoundCFGFile = false;
+                    var UseDHCP = true;
 
                     foreach (var Disk in FS.Disks)
                     {
+                        ConsoleFunctions.PrintLogMSG($"Searching disk #{FS.Disks.IndexOf(Disk)}...\n\r", ConsoleFunctions.LogType.DEBUG);
+
                         var PartitionCount = -1;
 
                         if (FoundCFGFile == true)
@@ -186,6 +209,7 @@ namespace BlackOpal
 
                         foreach (var Partition in Disk.Partitions)
                         {
+                            ConsoleFunctions.PrintLogMSG($"Searching partition #{PartitionCount}...\n\r", ConsoleFunctions.LogType.DEBUG);
                             PartitionCount++;
 
                             if (Partition.HasFileSystem == false)
@@ -211,6 +235,8 @@ namespace BlackOpal
 
                             foreach(var SubNode in SystemConfigXML.RootNode.SubNodes)
                             {
+                                ConsoleFunctions.PrintLogMSG($"Found sub node: \"{SubNode.Name}\" with value \"{SubNode.Value}\".\n\r", ConsoleFunctions.LogType.DEBUG);
+
                                 if (SubNode.Name == "Username")
                                 {
                                     Username = SubNode.Value;
@@ -227,17 +253,28 @@ namespace BlackOpal
                                     Directory.SetCurrentDirectory(SubNode.Value);
                                 }
 
+                                else if (SubNode.Name == "SystemIPAddress")
+                                {
+                                    if (SubNode.Value == "Auto")
+                                    {
+                                        UseDHCP = true;
+                                    }
+                                    else if (Network.IsIPv4AddressValid(SubNode.Value))
+                                    {
+                                        UseDHCP = false;
+                                    }
+                                    else
+                                    {
+                                        ConsoleFunctions.PrintLogMSG($"Invalid system IP address value: \"{SubNode.Value}\"\n\r", ConsoleFunctions.LogType.ERROR);
+                                    }
+                                }
+
                                 else if (SubNode.Name == "AutoconfigNetwork")
                                 {
                                     if(SubNode.Value == "True")
                                     {
-                                        Network.Init();
+                                        Network.Init(UseDHCP);
                                     }
-                                }
-
-                                else if (SubNode.Name == "NetworkConfig")
-                                {
-                                    
                                 }
 
                                 else if (SubNode.Name == "AutostartGUI")
@@ -257,8 +294,26 @@ namespace BlackOpal
                 }
                 else
                 {
-                    ConsoleFunctions.PrintLogMSG($"There is no filesystem, so the configuration file will be skipped.\n\r", ConsoleFunctions.LogType.WARNING);
+                    ConsoleFunctions.PrintLogMSG($"There is no filesystem, so the configuration file will not be checked.\n\r", ConsoleFunctions.LogType.WARNING);
                 }
+
+                // Check for pending installations
+                /*foreach (var Disk in FS.Disks)
+                {
+                    if (Disk.Partitions.Count > 0)
+                    {
+                        byte[] BlockData = new byte[512];
+                        int DiskIndex = FS.Disks.IndexOf(Disk);
+
+                        Disk.Partitions[0].Host.ReadBlock(1, 1, ref BlockData);
+
+                        if (BlockData[0] == InstallationMarker)
+                        {
+                            ConsoleFunctions.PrintLogMSG($"Found pending installation on disk #{DiskIndex}\n\r", ConsoleFunctions.LogType.INFO);
+                            OSInstaller.Init(true, DiskIndex);
+                        }
+                    }
+                }*/
                 
                 // Instantiate the GUI class
                 ConsoleFunctions.PrintLogMSG("Instantiating the GUI...\n\r", ConsoleFunctions.LogType.INFO);
@@ -554,7 +609,7 @@ namespace BlackOpal
 
                 // Get information about each installed (and functioning) disk
                 case "diskinfo":
-                    foreach(var Disk in FS.Disks)
+                    foreach (var Disk in FS.Disks)
                     {
                         var DiskType = "Unknown";
 
@@ -579,9 +634,11 @@ namespace BlackOpal
                             Terminal.WriteLine("Block Size: " + Disk.Partitions[i].Host.BlockSize + " bytes");
                             Terminal.WriteLine("Block Partitions: " + Disk.Partitions[i].Host.BlockCount);
                             Terminal.WriteLine("Size: " + Disk.Partitions[i].Host.BlockCount * Disk.Partitions[i].Host.BlockSize / 1024 / 1024 + " MB");
+                            Terminal.WriteLine($"Root path: {Disk.Partitions[i].RootPath}\n");
                         }
 
-                        Terminal.WriteLine($"Root path: {Disk.Partitions[0].RootPath}\n");
+                        if (Disk.Partitions.Count <= 0)
+                            Terminal.WriteLine();
                     }
 
                     Terminal.WriteLine();
@@ -593,6 +650,8 @@ namespace BlackOpal
                     {
                         Terminal.Write("Choose a disk to format >> ");
                         FSUtilities.FormatDisk(Convert.ToInt32(Terminal.ReadLine()));
+
+                        Terminal.WriteLine("\nYou must restart your computer for changes to take effect.");
                     }
                     catch (Exception EX)
                     {

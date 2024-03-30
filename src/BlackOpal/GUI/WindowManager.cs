@@ -6,6 +6,7 @@ using GUI.Component;
 using PrismAPI.Hardware.GPU;
 using PrismAPI.Graphics;
 using Color = PrismAPI.Graphics.Color;
+using System;
 
 namespace GUI
 {
@@ -14,13 +15,29 @@ namespace GUI
         public static Display ScreenCanvas;
         public static List<Window> WindowList = new List<Window>();
         public static bool FocusingWindow = false;
+        public static uint FocusedWindowID = 9999;
         private static Color TitlebarColor = new Color(139, 0, 139);
+        private static Random RNG = new Random();
 
         // Create a new window
         public static Window CreateNewWindow(string Title, Color BGColor, Size WindowSize, Point WindowPosition)
         {
-            Window NewWindow = new Window(Title, BGColor, WindowSize, WindowPosition, (uint)(WindowList.Count + 1));
+            uint WindowID = (uint)RNG.Next(10000, 99999);
+
+            // Make sure the window ID isn't already in use
+            CheckWindowIDs:
+                foreach (var WindowToCheck in WindowList)
+                {
+                    if (WindowToCheck.WindowID == WindowID)
+                    {
+                        WindowID = (uint)RNG.Next(10000, 99999);
+                        goto CheckWindowIDs;
+                    }
+                }
+
+            Window NewWindow = new Window(Title, BGColor, WindowSize, WindowPosition, WindowID);
             WindowList.Add(NewWindow);
+            FocusedWindowID = WindowID;
             return NewWindow;
         }
 
@@ -88,11 +105,13 @@ namespace GUI
                         if (TitlebarColor.ARGB != window.UnfocusedTitlebarColor.ARGB)
                         {
                             TitlebarColor = window.UnfocusedTitlebarColor;
+                            FocusedWindowID = window.WindowID;
                         }
                     }
-                    else if (TitlebarColor.ARGB != window.FocusedTitlebarColor.ARGB)
+                    else
                     {
-                        TitlebarColor = window.FocusedTitlebarColor;
+                        if (TitlebarColor.ARGB != window.FocusedTitlebarColor.ARGB)
+                            TitlebarColor = window.FocusedTitlebarColor;
                     }
 
                     ScreenCanvas.DrawFilledRectangle(window.Position.X, window.Position.Y, (ushort)window.Size.Width, 24, 0, TitlebarColor);

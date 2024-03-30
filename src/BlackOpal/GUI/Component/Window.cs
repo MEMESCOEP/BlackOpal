@@ -1,5 +1,4 @@
-﻿using Cosmos.Core.Memory;
-using Cosmos.System;
+﻿using Cosmos.System;
 using Cosmos.Core;
 using System.Collections.Generic;
 using System.Drawing;
@@ -17,6 +16,7 @@ namespace GUI.Component
         public List<WindowElement> WindowElements = new List<WindowElement>();
         public TextButton WindowCloseButton = new TextButton(new Point(0, 0));
         public Action UpdateAction = new Action(() => { });
+        public Action CloseAction = new Action(() => { });
         public Canvas Framebuffer;
         public Canvas WindowIcon = new Canvas(16, 16);
         public Color UnfocusedTitlebarColor = new Color(139, 0, 139);
@@ -45,7 +45,7 @@ namespace GUI.Component
             WindowCloseButton.ButtonHighlightColor = new Color(180, 0, 0);
             WindowCloseButton.ButtonPressedColor = new Color(75, 0, 130);
             WindowCloseButton.ButtonColor = Color.Magenta;
-            WindowCloseButton.PressedAction = Close;
+            WindowCloseButton.PressedAction = new Action(() => { Close(); });
             WindowCloseButton.ButtonText = "X";
         }
 
@@ -105,8 +105,14 @@ namespace GUI.Component
         }
 
         // Close the window
-        public void Close()
+        public void Close(bool CallCloseAction = false)
         {
+            if (CallCloseAction)
+            {
+                CloseAction.Invoke();
+            }
+
+            UserInterface.HideMouse = false;
             WindowManager.WindowList.RemoveAt(WindowManager.WindowList.IndexOf(this));
 
             // Free objects from memory

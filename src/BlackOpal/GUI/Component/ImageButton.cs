@@ -22,6 +22,7 @@ namespace GUI.Component
         public bool DrawWithAlphaChannel = true;
         public bool RequireMouseHeld = false;
         public bool ActionCalled = false;
+        public bool DrawBorder = true;
         public bool Toggled = false;
 
         /* FUNCTIONS */
@@ -35,10 +36,14 @@ namespace GUI.Component
             if (IsPressed() || Toggled)
             {
                 ScreenCanvas.DrawFilledRectangle(ButtonPosition.X, ButtonPosition.Y, ButtonImage.Width, ButtonImage.Height, 0, BackColorPressed);
-                ScreenCanvas.DrawLine(ButtonPosition.X, ButtonPosition.Y, ButtonBottomRight.X, ButtonPosition.Y, Color.Black);
-                ScreenCanvas.DrawLine(ButtonPosition.X - 1, ButtonPosition.Y + 1, ButtonPosition.X - 1, ButtonBottomRight.Y, Color.Black);
-                ScreenCanvas.DrawLine(ButtonPosition.X, ButtonBottomRight.Y, ButtonBottomRight.X, ButtonBottomRight.Y, Color.White);
-                ScreenCanvas.DrawLine(ButtonBottomRight.X, ButtonPosition.Y + 1, ButtonBottomRight.X, ButtonBottomRight.Y, Color.White);
+
+                if (DrawBorder)
+                {
+                    ScreenCanvas.DrawLine(ButtonPosition.X, ButtonPosition.Y, ButtonBottomRight.X, ButtonPosition.Y, Color.Black);
+                    ScreenCanvas.DrawLine(ButtonPosition.X - 1, ButtonPosition.Y + 1, ButtonPosition.X - 1, ButtonBottomRight.Y, Color.Black);
+                    ScreenCanvas.DrawLine(ButtonPosition.X, ButtonBottomRight.Y, ButtonBottomRight.X, ButtonBottomRight.Y, Color.White);
+                    ScreenCanvas.DrawLine(ButtonBottomRight.X, ButtonPosition.Y + 1, ButtonBottomRight.X, ButtonBottomRight.Y, Color.White);
+                }
 
                 if (ActionCalled == false)
                 {
@@ -62,10 +67,13 @@ namespace GUI.Component
                     ScreenCanvas.DrawFilledRectangle(ButtonPosition.X, ButtonPosition.Y, ButtonImage.Width, ButtonImage.Height, 0, BackColor);
                 }
 
-                ScreenCanvas.DrawLine(ButtonPosition.X, ButtonPosition.Y, ButtonBottomRight.X, ButtonPosition.Y, Color.White);
-                ScreenCanvas.DrawLine(ButtonPosition.X - 1, ButtonPosition.Y + 1, ButtonPosition.X - 1, ButtonBottomRight.Y, Color.White);
-                ScreenCanvas.DrawLine(ButtonPosition.X, ButtonBottomRight.Y, ButtonBottomRight.X, ButtonBottomRight.Y, Color.Black);
-                ScreenCanvas.DrawLine(ButtonPosition.X + ButtonImage.Width, ButtonPosition.Y + 1, ButtonBottomRight.X, ButtonBottomRight.Y, Color.Black);
+                if (DrawBorder)
+                {
+                    ScreenCanvas.DrawLine(ButtonPosition.X, ButtonPosition.Y, ButtonBottomRight.X, ButtonPosition.Y, Color.White);
+                    ScreenCanvas.DrawLine(ButtonPosition.X - 1, ButtonPosition.Y + 1, ButtonPosition.X - 1, ButtonBottomRight.Y, Color.White);
+                    ScreenCanvas.DrawLine(ButtonPosition.X, ButtonBottomRight.Y, ButtonBottomRight.X, ButtonBottomRight.Y, Color.Black);
+                    ScreenCanvas.DrawLine(ButtonPosition.X + ButtonImage.Width, ButtonPosition.Y + 1, ButtonBottomRight.X, ButtonBottomRight.Y, Color.Black);
+                }
             }
 
             // Draw the image

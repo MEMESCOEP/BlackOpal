@@ -7,14 +7,14 @@ using Cosmos.HAL;
 using IL2CPU.API.Attribs;
 using BlackOpal.Utilities.Calculations;
 using BlackOpal.GUI.Component;
+using BlackOpal.GUI;
 using GUI.Component;
 using IO.CMD;
 using PrismAPI.Hardware.GPU;
 using PrismAPI.Graphics;
-using Color = PrismAPI.Graphics.Color;
 using Kernel = BlackOpal.Kernel;
 using Power = Cosmos.System.Power;
-using BlackOpal.GUI;
+using Color = PrismAPI.Graphics.Color;
 
 namespace GUI
 {
@@ -33,7 +33,19 @@ namespace GUI
         [ManifestResourceStream(ResourceName = "BlackOpal.Assets.IMG.Logo.bmp")]
         static byte[] LogoArray;
 
+        [ManifestResourceStream(ResourceName = "BlackOpal.Assets.IMG.3DRendererIcon.bmp")]
+        static byte[] RendererArray;
+
+        [ManifestResourceStream(ResourceName = "BlackOpal.Assets.IMG.PowerOffIcon.bmp")]
+        static byte[] PowerArray;
+
+        [ManifestResourceStream(ResourceName = "BlackOpal.Assets.IMG.DebugIcon.bmp")]
+        static byte[] DebugArray;
+
         private ImageButton LogoButton = new();
+        private ImageButton _3DRendererButton = new();
+        private ImageButton PowerIconButton = new();
+        private ImageButton DebugIconButton = new();
         private TextButton DebugButton = new(new Point(36, ScreenHeight - 148));
         private TextButton PowerButton = new(new Point(36, ScreenHeight - 120));
         private TextButton ExitButton = new(new Point(24, ScreenHeight - 92));
@@ -43,12 +55,13 @@ namespace GUI
         private Canvas Logo = Image.FromBitmap(LogoArray);
         private double UsedMemPerentage = 0;
         private string CurrentTime = string.Empty, CurrentDate = string.Empty;
-        private bool DrawStartMenu = false, DrawGUI = true;
+        private bool DrawStartMenu = false;
         private int PreviousSecond = 0, PreviousHour = 0;
         public static PrismAPI.Graphics.Fonts.Font BIOSFont = new PrismAPI.Graphics.Fonts.Font(Kernel.TTFFont, 16);
         public static Display ScreenCanvas;
         public static Point ClickPoint = new Point(0, 0);
         public static ushort ScreenWidth = 1024, ScreenHeight = 768;
+        public static bool HideMouse = false, DrawGUI = true;
         public static int FrameCount = 0;
 
         /* FUNCTIONS */
@@ -72,7 +85,7 @@ namespace GUI
                     ConsoleFunctions.PrintLogMSG($"Initializing the canvas ({ScreenWidth}x{ScreenHeight}@32)...\n\r", ConsoleFunctions.LogType.INFO);
 
                     // Choose the best driver for the current display hardware
-                    ConsoleFunctions.PrintLogMSG($"Determining the best video driver...\n\r", ConsoleFunctions.LogType.INFO);
+                    ConsoleFunctions.PrintLogMSG($"Getting reference to the terminal's internal canvas...\n\r", ConsoleFunctions.LogType.INFO);
                     ScreenCanvas = (Display)Kernel.Terminal.Contents;
                     ConsoleFunctions.PrintLogMSG($"Using the \"{ScreenCanvas.GetName()}\" driver in {ScreenWidth}x{ScreenHeight}@32 mode.\n\r", ConsoleFunctions.LogType.INFO);
 
@@ -210,6 +223,33 @@ namespace GUI
                     LogoButton.PressedAction = new Action(() => { DrawStartMenu = !DrawStartMenu; });
                     LogoButton.RequireMouseHeld = false;
 
+                    // 3D Renderer button
+                    _3DRendererButton.DrawBorder = false;
+                    _3DRendererButton.HighlightedBackColor = new Color(192, Color.LightGray.R, Color.LightGray.G, Color.LightGray.B);
+                    _3DRendererButton.BackColorPressed = new Color(64, Color.LightGray.R, Color.LightGray.G, Color.LightGray.B);
+                    _3DRendererButton.ScreenCanvas = ScreenCanvas;
+                    _3DRendererButton.ButtonPosition = new Point(16, 0);
+                    _3DRendererButton.ButtonImage = Image.FromBitmap(RendererArray);
+                    _3DRendererButton.PressedAction = new Action(() => { _3D.CreateNewRenderer(); });
+
+                    // Power menu icon
+                    PowerIconButton.DrawBorder = false;
+                    PowerIconButton.HighlightedBackColor = new Color(192, Color.LightGray.R, Color.LightGray.G, Color.LightGray.B);
+                    PowerIconButton.BackColorPressed = new Color(64, Color.LightGray.R, Color.LightGray.G, Color.LightGray.B);
+                    PowerIconButton.ScreenCanvas = ScreenCanvas;
+                    PowerIconButton.ButtonPosition = new Point(16, 96);
+                    PowerIconButton.ButtonImage = Image.FromBitmap(PowerArray);
+                    PowerIconButton.PressedAction = PowerButton.PressedAction;
+
+                    // Debug icon
+                    DebugIconButton.DrawBorder = false;
+                    DebugIconButton.HighlightedBackColor = new Color(192, Color.LightGray.R, Color.LightGray.G, Color.LightGray.B);
+                    DebugIconButton.BackColorPressed = new Color(64, Color.LightGray.R, Color.LightGray.G, Color.LightGray.B);
+                    DebugIconButton.ScreenCanvas = ScreenCanvas;
+                    DebugIconButton.ButtonPosition = new Point(20, 192);
+                    DebugIconButton.ButtonImage = Image.FromBitmap(DebugArray);
+                    DebugIconButton.PressedAction = DebugButton.PressedAction;
+
                     // Initialize the mouse manager
                     ConsoleFunctions.PrintLogMSG("Initializing the mouse and setting its properties...\n\r", ConsoleFunctions.LogType.INFO);
                     MouseManager.MouseSensitivity = 1;
@@ -225,7 +265,7 @@ namespace GUI
 
                 // Infinite draw loop
                 ConsoleFunctions.PrintLogMSG($"Init done.\n\r", ConsoleFunctions.LogType.INFO);
-                BlackOpal.GUI.Messagebox.ShowMessage("Welcome!", "Welcome to the BlackOpal GUI!\nThis is still a work in progress, so you should expect bugs.\n- memescoep", BlackOpal.GUI.Messagebox.MessageType.INFO);
+                Messagebox.ShowMessage("Welcome!", "Welcome to the BlackOpal GUI!\nThis is still a work in progress, so you should expect bugs.\n- memescoep", BlackOpal.GUI.Messagebox.MessageType.INFO);
 
                 for (;;) 
                 {
@@ -247,12 +287,49 @@ namespace GUI
                         // Draw the wallpaper
                         ScreenCanvas.DrawImage(0, 0, Wallpaper, false);
 
+                        // Draw buttons
+                        _3DRendererButton.Draw();
+                        PowerIconButton.Draw();
+                        DebugIconButton.Draw();
+
+                        // Draw text
+                        ScreenCanvas.DrawString(48, 72, "3D Renderer", BIOSFont, Color.Black, true);
+                        ScreenCanvas.DrawString(48, 168, "Power", BIOSFont, Color.Black, true);
+                        ScreenCanvas.DrawString(48, 260, "Debug", BIOSFont, Color.Black, true);
+
                         // Draw any windows
                         WindowManager.DrawWindows();
 
                         // Draw the taskbar
                         ScreenCanvas.DrawImage(0, ScreenHeight - Taskbar.Height, Taskbar, false);
                         LogoButton.Draw();
+
+                        // Draw windows in the taskbar
+                        int TaskWindowPosition = 36;
+                        int WindowCount = 0;
+
+                        foreach (var TaskbarWindow in WindowManager.WindowList)
+                        {
+                            var RectLength = BIOSFont.MeasureString(TaskbarWindow.Title) + 8;
+                            var CorrectedStr = TaskbarWindow.Title;
+
+                            if (CorrectedStr.Length > 10)
+                            {
+                                CorrectedStr = CorrectedStr.Substring(0, 10) + "...";
+                            }
+
+                            if (WindowCount > 6)
+                            {
+                                ScreenCanvas.DrawFilledRectangle(TaskWindowPosition, ScreenHeight - Taskbar.Height + 6, 32, 20, 0, Color.LightGray);
+                                ScreenCanvas.DrawString(TaskWindowPosition + 4, ScreenHeight - Taskbar.Height + 8, "...", BIOSFont, Color.Black);
+                                break;
+                            }
+
+                            ScreenCanvas.DrawFilledRectangle(TaskWindowPosition, ScreenHeight - Taskbar.Height + 6, 116, 20, 0, Color.LightGray);
+                            ScreenCanvas.DrawString(TaskWindowPosition + 58, ScreenHeight - Taskbar.Height + 16, CorrectedStr, BIOSFont, Color.Black, true);
+                            TaskWindowPosition += 124;
+                            WindowCount++;
+                        }
 
                         // Draw the date and time
                         ScreenCanvas.DrawString((ScreenWidth - CurrentTime.Length * 8) - 4, ScreenHeight - 32, CurrentTime, BIOSFont, Color.White);
@@ -270,8 +347,17 @@ namespace GUI
                             ExitButton.Draw();
                         }
 
+                        // Draw a rectangle if the mouse is dragged
+                        /*if (!WindowManager.FocusingWindow && MouseManager.MouseState == MouseState.Left && MouseManager.LastMouseState == MouseManager.MouseState)
+                        {
+                            ScreenCanvas.DrawRectangle(ClickPoint.X, ClickPoint.Y, (ushort)(MouseManager.X - ClickPoint.X), (ushort)(MouseManager.Y - ClickPoint.Y), 0, new Color(0, 0, 255));
+                        }*/
+
                         // Draw the mouse pointer bitmap at the mouse position
-                        ScreenCanvas.DrawImage((int)MouseManager.X, (int)MouseManager.Y, MouseCursor);
+                        if (HideMouse == false)
+                        {
+                            ScreenCanvas.DrawImage((int)MouseManager.X, (int)MouseManager.Y, MouseCursor);
+                        }
 
                         // Copy the back (invisible) frame buffer to the front (visible) frame buffer
                         ScreenCanvas.Update();
@@ -281,15 +367,36 @@ namespace GUI
                         {
                             switch (System.Console.ReadKey().Key)
                             {
-                                // Exit the GUI if the user presses escape
-                                case ConsoleKey.Escape:
-                                    DrawGUI = false;
+                                // Close the focused window on ALT+F4
+                                case ConsoleKey.F4:
+                                    if (KeyboardManager.AltPressed)
+                                    {
+                                        foreach(var WindowToClose in WindowManager.WindowList)
+                                        {
+                                            if (WindowToClose.WindowID == WindowManager.FocusedWindowID)
+                                            {
+                                                WindowToClose.Close(true);
+                                                break;
+                                            }
+                                        }
+                                    }
+
                                     break;
 
                                 // Toggle the start menu if the user presses either Windows key
                                 case ConsoleKey.LeftWindows:
                                 case ConsoleKey.RightWindows:
                                     DrawStartMenu = !DrawStartMenu;
+                                    break;
+
+                                // Create a new 3D renderer window when the user presses the F11 key
+                                case ConsoleKey.F10:
+                                    if (KeyboardManager.ShiftPressed)
+                                    {
+                                        Terminal WindowedTerminal = new Terminal();
+                                        WindowedTerminal.Init();
+                                    }
+
                                     break;
 
                                 // Create a new 3D renderer window when the user presses the F11 key

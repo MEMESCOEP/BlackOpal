@@ -1,18 +1,49 @@
-﻿using Cosmos.Core.Memory;
+﻿using Cosmos.System.FileSystem;
+using Cosmos.Core.Memory;
 using System.IO;
 using System;
 using IO.CMD;
 using BlackOpal.IO.Filesystem;
 using PrismAPI.Graphics;
-using Cosmos.System.FileSystem;
-using Cosmos.HAL.BlockDevice;
 
 namespace BlackOpal.Utilities.Installers
 {
     public class OSInstaller
     {
-        public static void Init()
+        public static void Init(bool SecondStage = false, int SecondStageDisk = -1)
         {
+            if (SecondStage)
+            {
+                // Copy files from the installation media to the formatted partition
+                if (Directory.Exists(Kernel.BootMediumPath) == false)
+                {
+                    throw new DirectoryNotFoundException($"The boot medium path (\"{Kernel.BootMediumPath}\") doesn't exist.");
+                }
+
+                Kernel.Terminal.Write($"Copying files from \"{Kernel.BootMediumPath}\" -> \"{Kernel.FS.Disks[SecondStageDisk].Partitions[0].RootPath}\"... ");
+
+                foreach (var FileToCopy in Kernel.FS.GetDirectoryListing(Kernel.BootMediumPath))
+                {
+                    if (File.Exists(FileToCopy.mFullPath))
+                    {
+                        try
+                        {
+                            FSUtilities.CopyItem(Path.Combine(Kernel.BootMediumPath, FileToCopy.mName), Kernel.FS.Disks[SecondStageDisk].Partitions[0].RootPath);
+                        }
+                        catch (Exception EX)
+                        {
+                            Exit();
+                            ConsoleFunctions.PrintLogMSG($"Installation failed: {EX.Message}\n\n\r", ConsoleFunctions.LogType.ERROR);
+                            return;
+                        }
+                    }
+                }
+
+                Kernel.HTerminal.ColoredWriteLine("[DONE]", Color.Green);
+                Kernel.Terminal.WriteLine("Installation finished!\n\n\r");
+                return;
+            }
+
             Kernel.Terminal.BackgroundColor = Color.StackOverflowBlack;
             Kernel.Terminal.ForegroundColor = Color.StackOverflowWhite;
             Kernel.Terminal.Clear();
@@ -92,34 +123,15 @@ namespace BlackOpal.Utilities.Installers
             // Format and partition the disk
             FSUtilities.FormatDisk(DiskIndex, true);
 
-            // Copy files from the installation media to the formatted partition
-            if (Directory.Exists(Kernel.BootMediumPath) == false)
-            {
-                throw new DirectoryNotFoundException($"The boot medium path (\"{Kernel.BootMediumPath}\") doesn't exist.");
-            }
+            // Write the installation marker to the disk right after the MBR
+            var BlockData = new byte[512];
 
-            Kernel.Terminal.Write($"Copying files from \"{Kernel.BootMediumPath}\" -> \"{Kernel.FS.Disks[DiskIndex].Partitions[0].RootPath}\"...\n");
+            BlockData[0] = (byte)Kernel.InstallationMarker;
+            Kernel.FS.Disks[DiskIndex].Partitions[0].Host.WriteBlock(1, 1, ref BlockData);
 
-            foreach (var FileToCopy in Kernel.FS.GetDirectoryListing(Kernel.BootMediumPath))
-            {
-                if (File.Exists(FileToCopy.mFullPath))
-                {
-                    try
-                    {
-                        FSUtilities.CopyItem(Path.Combine(Kernel.BootMediumPath, FileToCopy.mName), Kernel.FS.Disks[DiskIndex].Partitions[0].RootPath);
-                    }
-                    catch(Exception EX)
-                    {
-                        Exit();
-                        ConsoleFunctions.PrintLogMSG($"Installation failed: {EX.Message}\n\n\r", ConsoleFunctions.LogType.ERROR);
-                        return;
-                    }
-                }
-            }
-
-            Kernel.HTerminal.ColoredWriteLine("[DONE]", Color.Green);
-            Kernel.Terminal.WriteLine("Installation finished!\n\n\r");
-            Cosmos.HAL.Power.CPUReboot();
+            Kernel.Terminal.WriteLine("The system must reboot in order for the formatting changes to take effect.\nInstallation will continue once the system reboots.\n\nPress any key to restart.");
+            Kernel.Terminal.ReadKey();
+            Cosmos.System.Power.Reboot();
         }   
 
         private static void Exit()

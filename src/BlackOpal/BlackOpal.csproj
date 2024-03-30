@@ -26,17 +26,21 @@
         <VBEResolution>1024x768x32</VBEResolution>
         <RemoveBootDebugOutput>True</RemoveBootDebugOutput>
         <UseUEFI>True</UseUEFI>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>
 
     <ItemGroup>
       <None Remove="Assets\Fonts\Terminal.btf" />
       <None Remove="Assets\Fonts\Terminus.ttf" />
+      <None Remove="Assets\IMG\3DRendererIcon.bmp" />
+      <None Remove="Assets\IMG\DebugIcon.bmp" />
       <None Remove="Assets\IMG\ErrorIcon.bmp" />
       <None Remove="Assets\IMG\ErrorIcon.png" />
       <None Remove="Assets\IMG\InfoIcon.bmp" />
       <None Remove="Assets\IMG\InfoIcon.png" />
       <None Remove="Assets\IMG\Logo.bmp" />
       <None Remove="Assets\IMG\Mouse.bmp" />
+      <None Remove="Assets\IMG\PowerOffIcon.bmp" />
       <None Remove="Assets\IMG\QuestionIcon.bmp" />
       <None Remove="Assets\IMG\QuestionIcon.png" />
       <None Remove="Assets\IMG\Taskbar.bmp" />
@@ -49,10 +53,13 @@
       <EmbeddedResource Include="Assets\Fonts\Terminal.btf">
         <CopyToOutputDirectory>Never</CopyToOutputDirectory>
       </EmbeddedResource>
+      <EmbeddedResource Include="Assets\IMG\3DRendererIcon.bmp" />
+      <EmbeddedResource Include="Assets\IMG\DebugIcon.bmp" />
       <EmbeddedResource Include="Assets\IMG\ErrorIcon.bmp" />
       <EmbeddedResource Include="Assets\IMG\InfoIcon.bmp" />
       <EmbeddedResource Include="Assets\IMG\Logo.bmp" />
       <EmbeddedResource Include="Assets\IMG\Mouse.bmp" />
+      <EmbeddedResource Include="Assets\IMG\PowerOffIcon.bmp" />
       <EmbeddedResource Include="Assets\IMG\QuestionIcon.bmp" />
       <EmbeddedResource Include="Assets\IMG\Taskbar.bmp" />
       <EmbeddedResource Include="Assets\IMG\Wallpaper.bmp" />
