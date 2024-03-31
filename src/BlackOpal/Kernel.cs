@@ -30,8 +30,9 @@ using BlackOpal.Utilities.Installers;
 using BlackOpal.Utilities.Parsers;
 using BlackOpal.IO.Networking;
 using BlackOpal.IO.Filesystem;
-using SVGAIITerminal.TextKit;
-using PrismAPI.Graphics;
+using GrapeGL.Graphics.Fonts;
+using GrapeGL.Hardware.GPU;
+using GrapeGL.Graphics;
 using HydrixLIB;
 using Sys = Cosmos.System;
 
@@ -45,10 +46,10 @@ namespace BlackOpal
         [ManifestResourceStream(ResourceName = "BlackOpal.Assets.Fonts.Terminal.btf")]
         public static byte[] TTFFont;
 
-        public const string OSVersion = "0.0.327";
+        public const string OSVersion = "0.0.330";
         public const string OSAuthor = "memescoep";
         public const string OSName = "Black Opal";
-        public const string OSDate = "3-27-2024";
+        public const string OSDate = "3-30-2024";
         public const bool DEBUG = false;
 
         public static SVGAIITerminal.SVGAIITerminal Terminal = new SVGAIITerminal.SVGAIITerminal(UserInterface.ScreenWidth, UserInterface.ScreenHeight, new BtfFontFace(TTFFont, 16));
@@ -95,7 +96,7 @@ namespace BlackOpal
                 Terminal.Clear();
                 ConsoleFunctions.PrintLogMSG("Configuring terminal...\n\r", ConsoleFunctions.LogType.INFO);
                 Terminal.CursorShape = SVGAIITerminal.CursorShape.Block;
-                TerminalDriver = ((PrismAPI.Hardware.GPU.Display)Terminal.Contents).GetName();
+                TerminalDriver = ((Display)Terminal.Contents).GetName();
                 Terminal.SetCursorPosition(0, 0);
                 ConsoleFunctions.PrintLogMSG($"Using the \"{TerminalDriver}\" driver.\n\r", ConsoleFunctions.LogType.INFO);
                 Terminal.ForegroundColor = TerminalColor;
@@ -355,7 +356,7 @@ namespace BlackOpal
                 HTerminal.ColoredWrite($"{Hostname}", Color.Cyan);
                 HTerminal.ColoredWrite($"[{Directory.GetCurrentDirectory()}] ", Color.Green);
                 HTerminal.ColoredWrite($"{CMDPrompt} ", Color.Red);
-                Terminal.ForegroundColor = Color.StackOverflowWhite;
+                Terminal.ForegroundColor = GrapeGL.Graphics.Color.StackOverflowWhite;
 
                 // Get user input
                 var Input = Terminal.ReadLine();

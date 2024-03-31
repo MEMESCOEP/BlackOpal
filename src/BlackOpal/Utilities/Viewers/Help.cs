@@ -1,4 +1,4 @@
-﻿using PrismAPI.Graphics;
+﻿using GrapeGL.Graphics;
 
 namespace BlackOpal.Utilities.Viewers
 {

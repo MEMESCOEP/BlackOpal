@@ -2,7 +2,7 @@
 /* DIRECTIVES */
 using Cosmos.HAL;
 using BlackOpal;
-using PrismAPI.Graphics;
+using GrapeGL.Graphics;
 
 /* NAMESPACES */
 namespace IO.CMD

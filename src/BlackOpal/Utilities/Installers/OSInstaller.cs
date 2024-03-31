@@ -4,7 +4,7 @@ using System.IO;
 using System;
 using IO.CMD;
 using BlackOpal.IO.Filesystem;
-using PrismAPI.Graphics;
+using Color = GrapeGL.Graphics.Color;
 
 namespace BlackOpal.Utilities.Installers
 {

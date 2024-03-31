@@ -4,7 +4,8 @@ using System;
 using BlackOpal.GUI.Component;
 using GUI.Component;
 using GUI;
-using PrismAPI.Graphics;
+using GrapeGL.Graphics;
+using Color = GrapeGL.Graphics.Color;
 
 namespace BlackOpal.GUI
 {
@@ -51,9 +52,9 @@ namespace BlackOpal.GUI
                 }
             }            
 
-            var WindowSize = new Size(Math.Max((ushort)100, UserInterface.BIOSFont.MeasureString(LongestMsgPart)) + 58, Math.Max(75, UserInterface.BIOSFont.Size * Message.Split('\n').Length - 1 + (UserInterface.BIOSFont.Size * 2)));
+            var WindowSize = new Size(Math.Max((ushort)100, UserInterface.BIOSFont.MeasureString(LongestMsgPart)) + 58, Math.Max(75, UserInterface.BIOSFont.GetHeight() * Message.Split('\n').Length - 1 + (UserInterface.BIOSFont.GetHeight() * 2)));
 
-            Window MSGWindow = WindowManager.CreateNewWindow(Title, PrismAPI.Graphics.Color.LightGray, WindowSize, new Point((UserInterface.ScreenWidth / 2) - (WindowSize.Width / 2), (int)((UserInterface.ScreenHeight / 2) - (WindowSize.Height / 0.5f))));
+            Window MSGWindow = WindowManager.CreateNewWindow(Title, Color.LightGray, WindowSize, new Point((UserInterface.ScreenWidth / 2) - (WindowSize.Width / 2), (int)((UserInterface.ScreenHeight / 2) - (WindowSize.Height / 0.5f))));
             WindowElement MessageElement = new WindowElement();
             WindowElement ImageElement = new WindowElement();
             WindowElement OKElement = new WindowElement();
@@ -90,7 +91,7 @@ namespace BlackOpal.GUI
 
             // Set up the OK/Close button
             OKButton.ButtonText = "OK";
-            OKButton.ButtonColor = new PrismAPI.Graphics.Color(255f, 185f, 185f, 185f);
+            OKButton.ButtonColor = new Color(255f, 185f, 185f, 185f);
             OKButton.PressedAction = new Action(() => { MSGWindow.Close(); });
                 
             // Set up the OK/Close element

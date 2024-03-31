@@ -10,11 +10,13 @@ using BlackOpal.GUI.Component;
 using BlackOpal.GUI;
 using GUI.Component;
 using IO.CMD;
-using PrismAPI.Hardware.GPU;
-using PrismAPI.Graphics;
+using GrapeGL.Hardware.GPU;
+using GrapeGL.Graphics;
 using Kernel = BlackOpal.Kernel;
 using Power = Cosmos.System.Power;
-using Color = PrismAPI.Graphics.Color;
+using Color = GrapeGL.Graphics.Color;
+using System.IO;
+using GrapeGL.Graphics.Fonts;
 
 namespace GUI
 {
@@ -57,7 +59,7 @@ namespace GUI
         private string CurrentTime = string.Empty, CurrentDate = string.Empty;
         private bool DrawStartMenu = false;
         private int PreviousSecond = 0, PreviousHour = 0;
-        public static PrismAPI.Graphics.Fonts.Font BIOSFont = new PrismAPI.Graphics.Fonts.Font(Kernel.TTFFont, 16);
+        public static BtfFontFace BIOSFont;
         public static Display ScreenCanvas;
         public static Point ClickPoint = new Point(0, 0);
         public static ushort ScreenWidth = 1024, ScreenHeight = 768;
@@ -69,6 +71,10 @@ namespace GUI
         {
             try
             {
+                MemoryStream FontStream = new MemoryStream(Kernel.TTFFont);
+                //BIOSFont = new GrapeGL.Graphics.Fonts.AcfFontFace(FontStream);
+                BIOSFont = new BtfFontFace(Kernel.TTFFont, 16);
+
                 // Make sure the GUI does not immediately exit if it is restarted
                 DrawGUI = true;
 
@@ -157,42 +163,36 @@ namespace GUI
                     DebugButton.ButtonText = "Debug";
                     DebugButton.ScreenCanvas = ScreenCanvas;
                     DebugButton.PressedAction = new Action(() => {
-                        Window NewWindow = WindowManager.CreateNewWindow("Debug Information", Color.LightGray, new Size(240, 90), new Point(256, 256));
+                        Window NewWindow = WindowManager.CreateNewWindow("Debug Information", Color.LightGray, new Size(240, 75), new Point(256, 256));
                         WindowElement MousePositionElement = new WindowElement();
                         WindowElement MemoryUsageElement = new WindowElement();
-                        WindowElement KernelNameElement = new WindowElement();
                         WindowElement UptimeElement = new WindowElement();
                         WindowElement DriverElement = new WindowElement();
                         WindowElement FPSElement = new WindowElement();
 
                         // Add useful information
-                        KernelNameElement.Type = WindowElement.ElementType.STRING;
-                        KernelNameElement.ElementData = $"{Kernel.OSName} {Kernel.OSVersion} - {Kernel.OSDate}";
-                        KernelNameElement.ElementPosition = new Point(5, 5);
-
                         MousePositionElement.Type = WindowElement.ElementType.STRING;
                         MousePositionElement.ElementData = $"MOUSE POS: {MouseManager.X}, {MouseManager.Y}";
-                        MousePositionElement.ElementPosition = new Point(5, 17);
+                        MousePositionElement.ElementPosition = new Point(5, 5);
 
                         UptimeElement.Type = WindowElement.ElementType.STRING;
                         UptimeElement.ElementData = $"UPTIME: {DateTime.Now - Kernel.KernelStartTime}";
-                        UptimeElement.ElementPosition = new Point(5, 29);
+                        UptimeElement.ElementPosition = new Point(5, 17);
 
                         DriverElement.Type = WindowElement.ElementType.STRING;
                         DriverElement.ElementData = $"DRIVER: {ScreenCanvas.GetName()}";
-                        DriverElement.ElementPosition = new Point(5, 41);
+                        DriverElement.ElementPosition = new Point(5, 29);
 
                         MemoryUsageElement.Type = WindowElement.ElementType.STRING;
                         MemoryUsageElement.ElementData = $"MEM: {Kernel.UsedRAM}/{Kernel.TotalInstalledRAM} KB ({UsedMemPerentage}%)";
-                        MemoryUsageElement.ElementPosition = new Point(5, 53);
+                        MemoryUsageElement.ElementPosition = new Point(5, 41);
 
                         FPSElement.Type = WindowElement.ElementType.STRING;
                         FPSElement.ElementData = $"FPS: {ScreenCanvas.GetFPS()} ({FrameCount})";
-                        FPSElement.ElementPosition = new Point(5, 65);
+                        FPSElement.ElementPosition = new Point(5, 53);
 
                         NewWindow.WindowElements.Add(MousePositionElement);
                         NewWindow.WindowElements.Add(MemoryUsageElement);
-                        NewWindow.WindowElements.Add(KernelNameElement);
                         NewWindow.WindowElements.Add(UptimeElement);
                         NewWindow.WindowElements.Add(DriverElement);
                         NewWindow.WindowElements.Add(FPSElement);
@@ -308,9 +308,9 @@ namespace GUI
                         int TaskWindowPosition = 36;
                         int WindowCount = 0;
 
-                        foreach (var TaskbarWindow in WindowManager.WindowList)
+                        for (int WindowIndex = WindowManager.WindowList.Count - 1; WindowIndex >= 0; WindowIndex--)
                         {
-                            var RectLength = BIOSFont.MeasureString(TaskbarWindow.Title) + 8;
+                            var TaskbarWindow = WindowManager.WindowList[WindowIndex];
                             var CorrectedStr = TaskbarWindow.Title;
 
                             if (CorrectedStr.Length > 10)
@@ -320,13 +320,19 @@ namespace GUI
 
                             if (WindowCount > 6)
                             {
-                                ScreenCanvas.DrawFilledRectangle(TaskWindowPosition, ScreenHeight - Taskbar.Height + 6, 32, 20, 0, Color.LightGray);
-                                ScreenCanvas.DrawString(TaskWindowPosition + 4, ScreenHeight - Taskbar.Height + 8, "...", BIOSFont, Color.Black);
+                                ScreenCanvas.DrawFilledRectangle(TaskWindowPosition, ScreenHeight - Taskbar.Height + 4, 32, 20, 0, Color.LightGray);
+                                ScreenCanvas.DrawString(TaskWindowPosition + 4, ScreenHeight - Taskbar.Height + 6, "...", BIOSFont, Color.Black);
                                 break;
                             }
 
-                            ScreenCanvas.DrawFilledRectangle(TaskWindowPosition, ScreenHeight - Taskbar.Height + 6, 116, 20, 0, Color.LightGray);
-                            ScreenCanvas.DrawString(TaskWindowPosition + 58, ScreenHeight - Taskbar.Height + 16, CorrectedStr, BIOSFont, Color.Black, true);
+                            ScreenCanvas.DrawFilledRectangle(TaskWindowPosition, ScreenHeight - Taskbar.Height + 4, 116, 20, 0, Color.LightGray);
+
+                            if (WindowIndex == WindowManager.WindowList.Count - 1)
+                            {
+                                ScreenCanvas.DrawRectangle(TaskWindowPosition, ScreenHeight - Taskbar.Height + 4, 116, 20, 0, Color.Magenta);
+                            }
+
+                            ScreenCanvas.DrawString(TaskWindowPosition + 58, ScreenHeight - Taskbar.Height + 14, CorrectedStr, BIOSFont, Color.Black, true);
                             TaskWindowPosition += 124;
                             WindowCount++;
                         }

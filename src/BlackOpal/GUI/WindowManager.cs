@@ -1,12 +1,12 @@
 ﻿using Cosmos.System;
 using System.Collections.Generic;
 using System.Drawing;
+using System;
 using BlackOpal.GUI.Component;
 using GUI.Component;
-using PrismAPI.Hardware.GPU;
-using PrismAPI.Graphics;
-using Color = PrismAPI.Graphics.Color;
-using System;
+using GrapeGL.Hardware.GPU;
+using GrapeGL.Graphics;
+using Color = GrapeGL.Graphics.Color;
 
 namespace GUI
 {

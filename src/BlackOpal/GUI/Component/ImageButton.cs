@@ -2,8 +2,8 @@
 using System.Drawing;
 using System;
 using BlackOpal.Utilities.Calculations;
-using PrismAPI.Graphics;
-using Color = PrismAPI.Graphics.Color;
+using GrapeGL.Graphics;
+using Color = GrapeGL.Graphics.Color;
 
 namespace GUI.Component
 {

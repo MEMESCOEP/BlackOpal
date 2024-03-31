@@ -77,7 +77,7 @@ namespace BlackOpal.GUI
             RenderWindow.CloseAction = new Action(() => { UserInterface.HideMouse = false; });
 
             // Main render loop
-            RenderWindow.Framebuffer = RasterEngine;
+            //RenderWindow.Framebuffer = RasterEngine.Internal;
             RenderWindow.UpdateAction = new Action(() =>
             {
                 WallGO.ObjectMesh.Rotation.X += 0.01f;
@@ -246,7 +246,8 @@ namespace BlackOpal.GUI
             // Draw everything in the window's framebuffer
             RasterEngine.Camera.Ambient = AmbientColor;
             RasterEngine.Render();
-            RasterEngine.DrawString(5, 0, $"POS: '{RasterEngine.Camera.Position}'", UserInterface.BIOSFont, Color.Black);
+            //RasterEngine.DrawString(5, 0, $"POS: '{RasterEngine.Camera.Position}'", UserInterface.BIOSFont, Color.Black);
+            
             //RasterEngine.DrawString(5, 16, $"Scancode: {Scancode}", UserInterface.BIOSFont, Color.Black);
             //RasterEngine.DrawString(5, 32, $"Render time: {Watch.ElapsedMilliseconds}", UserInterface.BIOSFont, Color.Black);
 

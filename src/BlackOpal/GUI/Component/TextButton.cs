@@ -1,12 +1,11 @@
 ﻿using Cosmos.System.Coroutines;
 using Cosmos.System;
 using System.Collections.Generic;
-using System.Threading;
 using System.Drawing;
 using System;
 using BlackOpal.Utilities.Calculations;
-using PrismAPI.Hardware.GPU;
-using Color = PrismAPI.Graphics.Color;
+using GrapeGL.Hardware.GPU;
+using Color = GrapeGL.Graphics.Color;
 
 namespace GUI.Component
 {
@@ -92,7 +91,7 @@ namespace GUI.Component
                     }
                     else
                     {
-                        ((Display)BlackOpal.Kernel.Terminal.Contents).Update();
+                        ((GrapeGL.Hardware.GPU.Display)BlackOpal.Kernel.Terminal.Contents).Update();
                     }
 
                     //Thread.Sleep(10);

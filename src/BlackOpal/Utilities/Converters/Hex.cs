@@ -1,5 +1,5 @@
 ﻿using Cosmos.Core.Memory;
-using PrismAPI.Graphics;
+using GrapeGL.Graphics;
 using System;
 
 namespace BlackOpal.Utilities.Converters

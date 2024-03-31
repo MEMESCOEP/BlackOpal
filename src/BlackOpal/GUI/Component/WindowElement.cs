@@ -1,5 +1,5 @@
 ﻿using System.Drawing;
-using Color = PrismAPI.Graphics.Color;
+using Color = GrapeGL.Graphics.Color;
 
 namespace BlackOpal.GUI.Component
 {

@@ -1,8 +1,7 @@
 ﻿using Cosmos.Core;
-using Cosmos.HAL;
 using System;
 using IO.CMD;
-using PrismAPI.Graphics;
+using GrapeGL.Graphics;
 
 namespace BlackOpal.Utilities.KernelUtils
 {
@@ -13,7 +12,7 @@ namespace BlackOpal.Utilities.KernelUtils
         {
             var IntErrorCode = Convert.ToInt32(ErrorCode);
 
-            Kernel.Terminal.ForegroundColor = Color.StackOverflowWhite;
+            Kernel.Terminal.ForegroundColor = GrapeGL.Graphics.Color.StackOverflowWhite;
             Kernel.HTerminal.ColoredWrite("[===== ", Color.StackOverflowWhite);
             Kernel.HTerminal.ColoredWrite("KERNEL PANIC", Color.Red);
             Kernel.HTerminal.ColoredWriteLine(" =====]", Color.StackOverflowWhite);
