@@ -62,7 +62,7 @@ namespace GUI.Component
 
                 if (DrawFromLocalPosition)
                 {
-                    ScreenCanvas.DrawString(ButtonLocalPosition.X + (ButtonPixelLength / 2), ButtonLocalPosition.Y + (17 / 2) + 1, ButtonText, UserInterface.BIOSFont, TextColor, true);
+                    ScreenCanvas.DrawString(ButtonLocalPosition.X + (ButtonPixelLength / 2), ButtonLocalPosition.Y + 17, ButtonText, UserInterface.BIOSFont, TextColor, true);
 
                     // Vertical lines
                     ScreenCanvas.DrawLine(ButtonLocalPosition.X - 1, ButtonLocalPosition.Y + 1, ButtonLocalPosition.X - 1, ButtonLocalPosition.Y + 17, Color.Black);
@@ -91,7 +91,7 @@ namespace GUI.Component
                     }
                     else
                     {
-                        ((GrapeGL.Hardware.GPU.Display)BlackOpal.Kernel.Terminal.Contents).Update();
+                        ((Display)BlackOpal.Kernel.Terminal.Contents).Update();
                     }
 
                     //Thread.Sleep(10);
@@ -111,7 +111,7 @@ namespace GUI.Component
 
                 if (DrawFromLocalPosition)
                 {
-                    ScreenCanvas.DrawString(ButtonLocalPosition.X + (ButtonPixelLength / 2), ButtonLocalPosition.Y + (17 / 2) + 1, ButtonText, UserInterface.BIOSFont, TextColor, true);
+                    ScreenCanvas.DrawString(ButtonLocalPosition.X + (ButtonPixelLength / 2), ButtonLocalPosition.Y + 17, ButtonText, UserInterface.BIOSFont, TextColor, true);
 
                     // Vertical lines
                     ScreenCanvas.DrawLine(ButtonLocalPosition.X - 1, ButtonLocalPosition.Y + 1, ButtonLocalPosition.X - 1, ButtonLocalPosition.Y + 17, Color.White);
@@ -119,7 +119,7 @@ namespace GUI.Component
                 }
                 else
                 {
-                    ScreenCanvas.DrawString((ButtonLocalPosition.X + ButtonBottomRight.X) / 2, (ButtonLocalPosition.Y + ButtonBottomRight.Y) / 2, ButtonText, UserInterface.BIOSFont, TextColor, true);
+                    ScreenCanvas.DrawString((ButtonLocalPosition.X + ButtonBottomRight.X) / 2, ((ButtonLocalPosition.Y + ButtonBottomRight.Y) / 2) + 8, ButtonText, UserInterface.BIOSFont, TextColor, true);
 
                     // Vertical lines
                     ScreenCanvas.DrawLine(ButtonLocalPosition.X - 1, ButtonLocalPosition.Y + 1, ButtonLocalPosition.X - 1, ButtonBottomRight.Y, Color.White);

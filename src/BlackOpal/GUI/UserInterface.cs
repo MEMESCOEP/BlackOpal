@@ -59,7 +59,7 @@ namespace GUI
         private string CurrentTime = string.Empty, CurrentDate = string.Empty;
         private bool DrawStartMenu = false;
         private int PreviousSecond = 0, PreviousHour = 0;
-        public static BtfFontFace BIOSFont;
+        public static BtfFontFace BIOSFont = new BtfFontFace(Kernel.TTFFont, 16);
         public static Display ScreenCanvas;
         public static Point ClickPoint = new Point(0, 0);
         public static ushort ScreenWidth = 1024, ScreenHeight = 768;
@@ -71,10 +71,6 @@ namespace GUI
         {
             try
             {
-                MemoryStream FontStream = new MemoryStream(Kernel.TTFFont);
-                //BIOSFont = new GrapeGL.Graphics.Fonts.AcfFontFace(FontStream);
-                BIOSFont = new BtfFontFace(Kernel.TTFFont, 16);
-
                 // Make sure the GUI does not immediately exit if it is restarted
                 DrawGUI = true;
 
@@ -320,19 +316,19 @@ namespace GUI
 
                             if (WindowCount > 6)
                             {
-                                ScreenCanvas.DrawFilledRectangle(TaskWindowPosition, ScreenHeight - Taskbar.Height + 4, 32, 20, 0, Color.LightGray);
+                                ScreenCanvas.DrawFilledRectangle(TaskWindowPosition, ScreenHeight - Taskbar.Height + 6, 32, 20, 0, Color.LightGray);
                                 ScreenCanvas.DrawString(TaskWindowPosition + 4, ScreenHeight - Taskbar.Height + 6, "...", BIOSFont, Color.Black);
                                 break;
                             }
 
-                            ScreenCanvas.DrawFilledRectangle(TaskWindowPosition, ScreenHeight - Taskbar.Height + 4, 116, 20, 0, Color.LightGray);
+                            ScreenCanvas.DrawFilledRectangle(TaskWindowPosition, ScreenHeight - Taskbar.Height + 6, 116, 20, 0, Color.LightGray);
 
                             if (WindowIndex == WindowManager.WindowList.Count - 1)
                             {
-                                ScreenCanvas.DrawRectangle(TaskWindowPosition, ScreenHeight - Taskbar.Height + 4, 116, 20, 0, Color.Magenta);
+                                ScreenCanvas.DrawRectangle(TaskWindowPosition, ScreenHeight - Taskbar.Height + 6, 116, 20, 0, Color.Magenta);
                             }
 
-                            ScreenCanvas.DrawString(TaskWindowPosition + 58, ScreenHeight - Taskbar.Height + 14, CorrectedStr, BIOSFont, Color.Black, true);
+                            ScreenCanvas.DrawString(TaskWindowPosition + 58, ScreenHeight - Taskbar.Height + 24, CorrectedStr, BIOSFont, Color.Black, true);
                             TaskWindowPosition += 124;
                             WindowCount++;
                         }

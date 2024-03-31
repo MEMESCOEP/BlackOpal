@@ -18,6 +18,7 @@ namespace BlackOpal.GUI
         /* VARIABLES */
         // Public
         public static List<GameObject> GameObjects = new List<GameObject>() { };
+        public static GrapeGL.Graphics.Canvas RenderCanvas = new GrapeGL.Graphics.Canvas((ushort)WindowSize.Width, (ushort)WindowSize.Height);
         public static Engine RasterEngine;
         public static Window RenderWindow;
         public static Color AmbientColor = new Color(255, 255, 255);
@@ -77,7 +78,7 @@ namespace BlackOpal.GUI
             RenderWindow.CloseAction = new Action(() => { UserInterface.HideMouse = false; });
 
             // Main render loop
-            //RenderWindow.Framebuffer = RasterEngine.Internal;
+            RenderWindow.Framebuffer = RenderCanvas;
             RenderWindow.UpdateAction = new Action(() =>
             {
                 WallGO.ObjectMesh.Rotation.X += 0.01f;
@@ -246,7 +247,13 @@ namespace BlackOpal.GUI
             // Draw everything in the window's framebuffer
             RasterEngine.Camera.Ambient = AmbientColor;
             RasterEngine.Render();
-            //RasterEngine.DrawString(5, 0, $"POS: '{RasterEngine.Camera.Position}'", UserInterface.BIOSFont, Color.Black);
+
+            unsafe
+            {
+                RasterEngine.CopyTo(RenderCanvas.Internal);
+            }
+
+            RenderCanvas.DrawString(5, 0, $"POS: '{RasterEngine.Camera.Position}'", UserInterface.BIOSFont, GrapeGL.Graphics.Color.Black);
             
             //RasterEngine.DrawString(5, 16, $"Scancode: {Scancode}", UserInterface.BIOSFont, Color.Black);
             //RasterEngine.DrawString(5, 32, $"Render time: {Watch.ElapsedMilliseconds}", UserInterface.BIOSFont, Color.Black);
